@@ -1,5 +1,6 @@
 import javax.crypto.SecretKey;
 import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.DatagramPacket;
@@ -19,13 +20,39 @@ public class OnionClient {
     private int[] portsToVisit;
     private String[] inetAddresses;
     private DatagramSocket socket;
+    String endIP;
+    int endPort;
 
     private SecretKey[] secretKeys;
     private PublicKey[] publicKeys;
 
-    public OnionClient(int nrOfNodes, int endPort) throws SocketException {
-        this.socket = new DatagramSocket(endPort);
+    public OnionClient(int nrOfNodes, String ip, int endPort) throws SocketException {
+        this.socket = new DatagramSocket();
+        this.endIP = ip;
+        this.endPort = endPort;
         this.nrOfNodes = nrOfNodes;
+        this.secretKeys = new SecretKey[nrOfNodes];
+        this.publicKeys = new PublicKey[nrOfNodes];
+        this.portsToVisit = new int[nrOfNodes+1];
+        this.inetAddresses = new String[nrOfNodes+1];
+    }
+
+    public void setDest(){
+        try (BufferedReader br = new BufferedReader(new FileReader("ipnports.txt"))) {
+            String line = br.readLine();
+            int i = 0;
+            while (line != null) {
+                String[] split = line.split(":");
+                inetAddresses[i] = split[0];
+                portsToVisit[i] = Integer.parseInt(split[1]);
+                line = br.readLine();
+                i++;
+            }
+            inetAddresses[i] = endIP;
+            portsToVisit[i] = endPort;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void run() throws IOException {
@@ -98,7 +125,8 @@ public class OnionClient {
 
     public static void main(String[] args) throws IOException {
         int tempNodes = 0;
-        OnionClient onionClient = new OnionClient(tempNodes, 9999);
+        OnionClient onionClient = new OnionClient(tempNodes, "9999", 1234);
+        onionClient.setDest();
         //TODO metode for noekler
         //TODO metode for aa opprette forbindelse
         onionClient.run();
