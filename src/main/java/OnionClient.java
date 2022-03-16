@@ -1,3 +1,4 @@
+import javax.crypto.SecretKey;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -7,6 +8,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.PublicKey;
 import java.util.Arrays;
 
 //TODO JAVADOC OG kommentarer Overalt
@@ -17,6 +19,9 @@ public class OnionClient {
     private int[] portsToVisit;
     private String[] inetAddresses;
     private DatagramSocket socket;
+
+    private SecretKey[] secretKeys;
+    private PublicKey[] publicKeys;
 
     public OnionClient(int nrOfNodes, int endPort) throws SocketException {
         this.socket = new DatagramSocket(endPort);
@@ -51,13 +56,17 @@ public class OnionClient {
 
             //Receiving Datagram packets
             System.out.println("Message from server: ");
-            byte[] bytesReceive = new byte[2048];
+            byte[] bytesReceive = new byte[1024];
             DatagramPacket dpReceive = new DatagramPacket(bytesReceive, byteMessage.length);
             socket.receive(dpReceive);
             //TODO DECRYPT Message method.
             System.out.println(new String(dpReceive.getData(), 0, dpReceive.getLength()));
         }
         socket.close();
+    }
+
+    private void getKeys() throws Exception{
+
     }
 
     public byte[] encrypt(byte[] msg) {
