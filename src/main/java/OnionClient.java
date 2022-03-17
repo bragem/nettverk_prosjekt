@@ -105,8 +105,11 @@ public class OnionClient {
                 //TODO clean up and update length plus general upgrade
                 byteBuffer = ByteBuffer.allocate(byteMessage.length + HEADER);
                 byteBuffer.put(inetAddresses[i+1].getBytes());
-                byteBuffer.put(inetAddresses[i].getBytes());
+                byteBuffer.put((byte)':');
                 byteBuffer.putInt(portsToVisit[i+1]);
+                byteBuffer.put(inetAddresses[i].getBytes());
+                byteBuffer.put((byte)':');
+                byteBuffer.putInt(portsToVisit[i]);
             }
             else {
                 byteBuffer = ByteBuffer.allocate(byteMessage.length);
