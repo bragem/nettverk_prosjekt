@@ -178,7 +178,7 @@ public class OnionClient {
             reader.readFully(decrypted);
 
             for (int j = 0; j <= i; j++) {
-                decrypted = CryptoUtil.decrypt(decrypted, l, secretKeys[j]);
+                decrypted = CryptoUtil.decryptAES(decrypted, l, secretKeys[j]);
                 if (j==i){//TODO sett en skikkelig sjekk her
                     System.out.println("Received ack from node " + portsToVisit[i]);
                 }
