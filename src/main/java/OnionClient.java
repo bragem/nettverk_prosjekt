@@ -1,9 +1,8 @@
+import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.DatagramPacket;
+import java.io.*;
+import java.net.Socket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
@@ -14,6 +13,10 @@ import java.util.Arrays;
 
 //TODO JAVADOC OG kommentarer Overalt
 public class OnionClient {
+
+    InputStreamReader readerConn;
+    BufferedReader reader;
+    PrintWriter writer;
 
     private final int HEADER = 40;
     private int nrOfNodes;
@@ -37,7 +40,7 @@ public class OnionClient {
         this.inetAddresses = new String[nrOfNodes+1];
     }
 
-    public void setDest(){
+    public void setDest() throws IOException {
         try (BufferedReader br = new BufferedReader(new FileReader("ipnports.txt"))) {
             String line = br.readLine();
             int i = 0;
@@ -53,15 +56,21 @@ public class OnionClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        this.socket = new Socket(inetAddresses[0], portsToVisit[0]);
+        readerConn = new InputStreamReader(socket.getInputStream());
+        reader = new BufferedReader(readerConn);
+        writer = new PrintWriter(socket.getOutputStream(), true);
     }
 
     private void run() throws IOException {
         System.out.println("Please write your message, enter when finished.");
         System.out.println("Enter 'exit' without the quotes to exit the program");
+
+
         while (true) {
             System.out.println("Write your message: ");
-            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-            String msg = reader.readLine();
+            BufferedReader read = new BufferedReader(new InputStreamReader(System.in));
+            String msg = read.readLine();
 
             //Ending connection that is established
             if (msg == null || msg.trim().equalsIgnoreCase("0")){
@@ -73,63 +82,97 @@ public class OnionClient {
                 break;
             }
 
-            //Sending Datagram packets
+            //Sending messages packets
             byte[] byteMessage = msg.getBytes(StandardCharsets.UTF_8);
+
+
             System.out.println("Message being sent");
+            System.out.println("Message being encrypted");
+
             //TODO ENCRYPT the bytemessage
-            DatagramPacket dpSend = new DatagramPacket(byteMessage, byteMessage.length, InetAddress.getByName(inetAddresses[0]), portsToVisit[0]);
-            socket.send(dpSend);
+//            String encryptMessage = encrypt(byteMessage);
+//            writer.println(encryptedMessage);
             System.out.println("Message sent: " + msg);
 
             //Receiving Datagram packets
             System.out.println("Message from server: ");
             byte[] bytesReceive = new byte[1024];
-            DatagramPacket dpReceive = new DatagramPacket(bytesReceive, byteMessage.length);
-            socket.receive(dpReceive);
+//            socket.receive(dpReceive);
             //TODO DECRYPT Message method.
-            System.out.println(new String(dpReceive.getData(), 0, dpReceive.getLength()));
+//            System.out.println(new String(dpReceive.getData(), 0, dpReceive.getLength()));
         }
         socket.close();
     }
 
-    private void getKeys() throws Exception{
+    private void connectSetup() throws Exception{
+        for (int i = 0; i < nrOfNodes; i++) {
+            //encrypt secret keys for
+            byte[] secretKeyByte = secretKeys[i].getEncoded();
+            PublicKey publicKey = publicKeys[i];
+            Cipher cipher = Cipher.getInstance("RSA");
+            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
 
-    }
+            byte[] cryptData = cipher.doFinal(secretKeyByte);
 
-    public byte[] encrypt(byte[] msg) {
-        byte[] byteMessage = Arrays.copyOf(msg, msg.length);
-        // encryption
-        for (int i = nrOfNodes -1; i >= 0; i--) {
-            ByteBuffer byteBuffer;
-            if(i != nrOfNodes -1){
-                //TODO clean up and update length plus general upgrade
-                byteBuffer = ByteBuffer.allocate(byteMessage.length + HEADER);
-                byteBuffer.put(inetAddresses[i+1].getBytes());
-                byteBuffer.put((byte)':');
-                byteBuffer.putInt(portsToVisit[i+1]);
-                byteBuffer.put(inetAddresses[i].getBytes());
-                byteBuffer.put((byte)':');
-                byteBuffer.putInt(portsToVisit[i]);
+            for (int j = i - 1 ; j >= 0; j++) {
+                ByteBuffer bytes = ByteBuffer.allocate(cryptData.length + HEADER);
+                bytes.put(Byte.parseByte(inetAddresses[j+1]));
+                bytes.put((byte) ':');
+                bytes.put((byte) portsToVisit[j+1]);
+                bytes.put(cryptData);
+
+                cryptData = new byte[cryptData.length + HEADER];
+                bytes.flip();
+
+                bytes.get(cryptData);
+
+                cipher = Cipher.getInstance("AES");
+                cipher.init(Cipher.ENCRYPT_MODE, secretKeys[j]);
+
+                cryptData = cipher.doFinal(cryptData);
             }
-            else {
-                byteBuffer = ByteBuffer.allocate(byteMessage.length);
-            }
-            byteBuffer.put(byteMessage);
-            byteBuffer.flip();
 
-            byteMessage = new byte[byteBuffer.limit()];
-            byteBuffer.get(byteMessage);
+            writer.println(Arrays.toString(cryptData));
 
-            //byteMessage //TODO Symetric encryption
+            reader.readLine();
         }
-
-        return byteMessage;
     }
 
-    public static void main(String[] args) throws IOException {
+    public String encrypt(String msg) {
+//        byte[] byteMessage = Arrays.copyOf(msg, msg.length);
+//        // encryption
+//        for (int i = nrOfNodes -1; i >= 0; i--) {
+//            ByteBuffer byteBuffer;
+//            if(i != nrOfNodes -1){
+//                //TODO clean up and update length plus general upgrade
+//                byteBuffer = ByteBuffer.allocate(byteMessage.length + HEADER);
+//                byteBuffer.put(inetAddresses[i+1].getBytes());
+//                byteBuffer.put((byte)':');
+//                byteBuffer.putInt(portsToVisit[i+1]);
+//                byteBuffer.put(inetAddresses[i].getBytes());
+//                byteBuffer.put((byte)':');
+//                byteBuffer.putInt(portsToVisit[i]);
+//            }
+//            else {
+//                byteBuffer = ByteBuffer.allocate(byteMessage.length);
+//            }
+//            byteBuffer.put(byteMessage);
+//            byteBuffer.flip();
+//
+//            byteMessage = new byte[byteBuffer.limit()];
+//            byteBuffer.get(byteMessage);
+//
+//            //byteMessage //TODO Symetric encryption
+//        }
+//
+        return "byteMessage";
+    }
+
+    public static void main(String[] args) throws Exception {
         int tempNodes = 0;
         OnionClient onionClient = new OnionClient(tempNodes, "9999", 1234);
         onionClient.setDest();
+        onionClient.connectSetup();
         //TODO metode for noekler
         //TODO metode for aa opprette forbindelse
         onionClient.run();

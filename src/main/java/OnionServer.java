@@ -1,41 +1,43 @@
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.*;
 
 public class OnionServer {
-    DatagramSocket ds = new DatagramSocket(1001);
-    byte[] bytArr = new byte[1024];
-    DatagramPacket dpReceive = new DatagramPacket(bytArr, bytArr.length);
-    DatagramPacket dpSend;
-    InetAddress inetAddress = InetAddress.getLocalHost();
+    final int PORT_NUM = 1250;
 
-    public OnionServer() throws UnknownHostException, SocketException{
-    }
+    public void run() throws IOException {
+        ServerSocket server = new ServerSocket(PORT_NUM);
+        System.out.println("Waiting for connection...");
+        Socket conn = server.accept();
+        System.out.println("Connection established");
 
-    public void start() throws IOException {
-        System.out.println("Server booting...");
-        String received = "-1";
-        while (!received.isBlank()) {
+        InputStreamReader readerConnection
+                = new InputStreamReader(conn.getInputStream());
+        BufferedReader reader = new BufferedReader(readerConnection);
+        PrintWriter writer = new PrintWriter(conn.getOutputStream(), true);
 
-            ds.receive(dpReceive);
-            received = (new String(dpReceive.getData(), 0, dpReceive.getLength()));
+        while(true) {
+            String clientMsg = reader.readLine();
+            writer.println(clientMsg);
 
-            System.out.println("Message received: " + received);
-
-            String solved = "Message received: " + received;
-            byte[] send = solved.getBytes();
-
-            dpSend = new DatagramPacket(send, send.length, inetAddress, dpReceive.getPort());
-            ds.send(dpSend);
+            if(reader.readLine().equals("0")) {
+                System.out.println("Shutting down...");
+                break;
+            } else {
+                continue;
+            }
         }
-    }
 
-    public void close(){
-        ds.close();
+        reader.close();
+        writer.close();
+        conn.close();
+        server.close();
     }
 
     public static void main(String[] args) throws IOException {
         OnionServer server = new OnionServer();
-        server.start();
-        server.close();
+        server.run();
     }
 }
