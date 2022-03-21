@@ -3,6 +3,7 @@ package utils;
 import javax.crypto.*;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.util.Base64;
 
 public class CryptoUtil {
 
@@ -20,6 +21,7 @@ public class CryptoUtil {
         Cipher cipher = Cipher.getInstance("AES");
         cipher.init(Cipher.DECRYPT_MODE, key);
 
+//        byte[] base64decodedTokenArr = Base64.getDecoder().decode(encryptedData);
         return cipher.doFinal(encryptedData, 0, length);
     }
 
