@@ -31,8 +31,12 @@ public class OnionNode {
 
     private ServerSocket serverSocket;
     private Socket socket;
+
     private String prevIP;
+    private int prevPort;
+
     private String nextIP;
+    private int nextPort;
 
     private Pattern IPv4 = Pattern.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
 
@@ -75,6 +79,9 @@ public class OnionNode {
 
         Socket connection = serverSocket.accept();
         prevIP = connection.getLocalAddress().getHostAddress();
+        prevPort = connection.getPort();
+
+        System.out.println("IP of connected client: " + prevIP + "\n");
         DataInputStream dis = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
 
         int byteLength;
@@ -116,6 +123,14 @@ public class OnionNode {
                 byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
 
                 String st = new String(decrypted, StandardCharsets.UTF_8);
+
+                nextIP = st.split("[:/]")[0];
+                nextPort = Integer.parseInt(st.split("[:/]")[1]);
+                System.out.println("Next IP is: " + nextIP + "\n");
+                System.out.println("Next Port is: " + nextPort + "\n");
+
+
+
                 System.out.println("Message received from client: " + st);
 
                 String response = "My secret key is now set!";
@@ -126,21 +141,31 @@ public class OnionNode {
                 dos.write(encrypted);
                 dos.flush();
 
-                forwardData(bytes, dos, dis);
+                forwardData(connection);
             }
         }
 
     }
 
 
-    public void forwardData(byte[] bytes, DataOutputStream dos, DataInputStream dis) throws Exception {
-        byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
+    public void forwardData(Socket connection) throws Exception {
 
-        String st = new String(decrypted, StandardCharsets.UTF_8);
-        System.out.println("Message received from client: " + st);
+        DataInputStream dis = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
+
+        socket = new Socket(nextIP, nextPort);
+
+        int byteLength;
+        byte[] bytes;
 
         while(true) {
+            byteLength = dis.readInt();
+            bytes = new byte[byteLength];
+            dis.readFully(bytes);
 
+            if(connection.getInetAddress().getHostAddress().equals(prevIP)) {
+                byte[] encrypted = CryptoUtil.encryptAES(bytes, bytes.length, getSecretKey());
+                
+            }
         }
 
     }
