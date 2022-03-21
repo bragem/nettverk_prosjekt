@@ -4,6 +4,7 @@ import javax.crypto.SecretKey;
 import java.io.*;
 import java.net.Socket;
 import java.net.DatagramSocket;
+import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
@@ -22,7 +23,8 @@ public class OnionClient {
     private int nrOfNodes;
     private int[] portsToVisit;
     private String[] inetAddresses;
-    private DatagramSocket socket;
+    private Socket socket;
+    // private DatagramSocket socket;
     String endIP;
     int endPort;
 
@@ -30,7 +32,8 @@ public class OnionClient {
     private PublicKey[] publicKeys;
 
     public OnionClient(int nrOfNodes, String ip, int endPort) throws SocketException {
-        this.socket = new DatagramSocket();
+        // this.socket = new DatagramSocket();
+        this.socket = new Socket();
         this.endIP = ip;
         this.endPort = endPort;
         this.nrOfNodes = nrOfNodes;
@@ -75,11 +78,14 @@ public class OnionClient {
             //Ending connection that is established
             if (msg == null || msg.trim().equalsIgnoreCase("0")){
                 System.out.println("Shutting down...");
-                byte[] bytesToExit = new byte[0]; //TODO encrypting method
-                DatagramPacket dpSend = new DatagramPacket(bytesToExit, bytesToExit.length, InetAddress.getByName(inetAddresses[0]), portsToVisit[0]);//TODO change dynamic user input localhost and ports of all
-                socket.send(dpSend);
+//                String exitString = teardownConnection();
+//                writer.println(exitString);
+
+
                 System.out.println("Shutdown complete.");
                 break;
+
+                // DatagramPacket dpSend = new DatagramPacket(bytesToExit, bytesToExit.length, InetAddress.getByName(inetAddresses[0]), portsToVisit[0]);//TODO change dynamic user input localhost and ports of all
             }
 
             //Sending messages packets
