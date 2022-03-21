@@ -1,10 +1,11 @@
-import javax.crypto.SecretKey;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import javax.crypto.*;
+import javax.crypto.spec.SecretKeySpec;
+import java.io.*;
 import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -29,6 +30,9 @@ public class OnionNode {
 
     // Secret symmetric key
     private SecretKey secretKey;
+
+    private ServerSocket serverSocket;
+    private Socket socket;
 
     public OnionNode(int port) throws UnknownHostException {
         this.hostName = InetAddress.getLocalHost().getHostName();
@@ -72,6 +76,71 @@ public class OnionNode {
         this.secretKey = key;
     }
 
+    public void setupConnection() throws IOException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+        serverSocket = new ServerSocket(port);
+
+        Socket connection = serverSocket.accept();
+        DataInputStream dis = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
+
+        int byteLength = 0;
+        byte[] theBytes;
+        String received;
+
+        while(true) {
+            byteLength = dis.readInt();
+            theBytes = new byte[byteLength];
+            dis.readFully(theBytes);
+
+            System.out.println(theBytes.length);
+            received = new String(theBytes, StandardCharsets.UTF_8);
+            System.out.println("Recieved from client: " + received + "\n");
+            System.out.println("Sending public key back to client\n");
+
+            PublicKey pk = loadRSAPublicKey();
+
+            DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
+            byte[] stBytes = pk.getEncoded();
+
+            dos.writeInt(stBytes.length);
+            dos.write(stBytes);
+            dos.flush();
+
+            byteLength = dis.readInt();
+            theBytes = new byte[byteLength];
+            dis.readFully(theBytes);
+
+            Cipher cipher = Cipher.getInstance("RSA");
+            cipher.init(Cipher.DECRYPT_MODE, loadRSAPrivateKey());
+
+            byte[] decrypted = cipher.doFinal(theBytes);
+
+            SecretKey sk = new SecretKeySpec(decrypted, "AES");
+            System.out.println(Arrays.toString(sk.getEncoded()));
+
+            received = new String(sk.getEncoded(), StandardCharsets.UTF_8);
+            System.out.println("\nRecieved from client: " + received + "\n");
+
+
+            if(secretKey != null) {
+                break;
+            }
+        }
+
+    }
+
+
+    public void forwardData(String ip, int port) throws IOException {
+        socket = new Socket(ip, port);
+
+    }
+
+
+    /**
+     * Creates a new private-public keypair of type RSA
+     *
+     * @throws NoSuchAlgorithmException if the generator doesn't recognize the encryption algorithm
+     * @throws IOException if the saveRSA method fails to save the keys
+     */
     private void createRSA() throws NoSuchAlgorithmException, IOException {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
         kpg.initialize(2048);
@@ -81,8 +150,16 @@ public class OnionNode {
         PublicKey pub = kp.getPublic();
         PrivateKey pvt = kp.getPrivate();
         saveRSA(pub, pvt);
+        //cleanUp(new File("./keys"));
     }
 
+    /**
+     * Saves a public and a private key to two different files
+     *
+     * @param pub the public key
+     * @param pvt the private key
+     * @throws IOException if it fails to save to file
+     */
     private void saveRSA(PublicKey pub, PrivateKey pvt) throws IOException {
         String pubOutFile = "rsa_pub.pub";
         String pvtOutFile = "rsa_pvt.key";
@@ -146,13 +223,28 @@ public class OnionNode {
         return null;
     }
 
-    public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
+    private void cleanUp(File file) {
+        File[] contents = file.listFiles();
+        if (contents != null) {
+            for (File f : contents) {
+                if (!Files.isSymbolicLink(f.toPath())) {
+                    cleanUp(f);
+                }
+            }
+        }
+        file.delete();
+    }
+
+    public static void main(String[] args) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
         List<String> argsList = Arrays.asList(args);
 
         if(argsList.contains("-p")) {
             int port = Integer.parseInt(argsList.get(argsList.indexOf("-p") + 1));
             OnionNode node = new OnionNode(port);
-            node.createRSA();
+            //node.createRSA();
+            node.setupConnection();
+
+
 
             /*System.out.println("Public key format: \n" + node.getPublicKey() + "\n\n");
             System.out.println("Private key format: \n" + node.getPrivateKey() + "\n\n");*/
