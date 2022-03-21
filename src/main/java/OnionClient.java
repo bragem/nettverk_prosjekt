@@ -1,5 +1,5 @@
 import javax.crypto.Cipher;
-import javax.crypto.NoSuchPaddingException;
+import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.io.*;
 import java.net.Socket;
@@ -9,7 +9,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
+import utils.CryptoUtil;
 
 //TODO JAVADOC OG kommentarer Overalt
 public class OnionClient {
@@ -22,7 +25,6 @@ public class OnionClient {
     private int[] portsToVisit;
     private String[] inetAddresses;
     private Socket socket;
-    // private DatagramSocket socket;
     String endIP;
     int endPort;
 
@@ -61,6 +63,14 @@ public class OnionClient {
         writer = new DataOutputStream(socket.getOutputStream());
     }
 
+    private void createSymmetricKeys(int numberOfKeys) throws NoSuchAlgorithmException, NoSuchAlgorithmException {
+        for(int i = 0; i < numberOfKeys; i++) {
+            KeyGenerator kg = KeyGenerator.getInstance("AES");
+            kg.init(i);
+            SecretKey sk = kg.generateKey();
+        }
+    }
+
     private void run() throws IOException {
         System.out.println("Please write your message, enter when finished.");
         System.out.println("Enter 'exit' without the quotes to exit the program");
@@ -92,7 +102,7 @@ public class OnionClient {
             System.out.println("Message being encrypted");
 
             //TODO ENCRYPT the bytemessage
-//            String encryptMessage = encrypt(byteMessage);
+//            byte[] encryptMessage = encrypt(byteMessage);
 //            writer.println(encryptedMessage);
             System.out.println("Message sent: " + msg);
 
