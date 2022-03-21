@@ -1,3 +1,5 @@
+import utils.CryptoUtil;
+
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
@@ -7,7 +9,6 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.*;
@@ -16,6 +17,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class OnionNode {
 
@@ -24,15 +26,13 @@ public class OnionNode {
     private String IPAddress;
     private int port;
 
-    // Public and private RSA keys for initial setup of connection
-    private Key publicKey;
-    private Key privateKey;
-
     // Secret symmetric key
     private SecretKey secretKey;
 
     private ServerSocket serverSocket;
     private Socket socket;
+
+    private Pattern IPv4 = Pattern.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
 
     public OnionNode(int port) throws UnknownHostException {
         this.hostName = InetAddress.getLocalHost().getHostName();
@@ -55,28 +55,20 @@ public class OnionNode {
         return port;
     }
 
-    public String getPublicKey() {
-        return publicKey.getFormat();
-    }
-
-    //TODO: Remove method below
-    public String getPrivateKey() {
-        return privateKey.getFormat();
-    }
-
-    private void setPublicKey(Key key) {
-        this.publicKey = key;
-    }
-
-    private void setPrivateKey(Key key) {
-        this.privateKey = key;
-    }
-
     private void setSecretKey(SecretKey key) {
         this.secretKey = key;
     }
 
-    public void setupConnection() throws IOException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    private SecretKey getSecretKey() {
+        return this.secretKey;
+    }
+
+    /**
+     * Sets up a connection between itself and a client or another node
+     *
+     * @throws Exception
+     */
+    public void setupConnection() throws Exception {
         serverSocket = new ServerSocket(port);
 
         Socket connection = serverSocket.accept();
@@ -91,39 +83,104 @@ public class OnionNode {
             theBytes = new byte[byteLength];
             dis.readFully(theBytes);
 
-            System.out.println(theBytes.length);
-            received = new String(theBytes, StandardCharsets.UTF_8);
-            System.out.println("Recieved from client: " + received + "\n");
-            System.out.println("Sending public key back to client\n");
-
-            PublicKey pk = loadRSAPublicKey();
+            String tmp = new String(theBytes, StandardCharsets.UTF_8);
 
             DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
-            byte[] stBytes = pk.getEncoded();
-
-            dos.writeInt(stBytes.length);
-            dos.write(stBytes);
-            dos.flush();
-
-            byteLength = dis.readInt();
-            theBytes = new byte[byteLength];
-            dis.readFully(theBytes);
-
-            Cipher cipher = Cipher.getInstance("RSA");
-            cipher.init(Cipher.DECRYPT_MODE, loadRSAPrivateKey());
-
-            byte[] decrypted = cipher.doFinal(theBytes);
-
-            SecretKey sk = new SecretKeySpec(decrypted, "AES");
-            System.out.println(Arrays.toString(sk.getEncoded()));
-
-            received = new String(sk.getEncoded(), StandardCharsets.UTF_8);
-            System.out.println("\nRecieved from client: " + received + "\n");
 
 
-            if(secretKey != null) {
-                break;
+            if("GivePK!!!".equals(tmp)) {
+                System.out.println("Received from client: " + tmp + "\n");
+                System.out.println("Sending public key back to client\n");
+
+                PublicKey pk = loadRSAPublicKey();
+
+
+                byte[] stBytes = pk.getEncoded();
+
+                dos.writeInt(stBytes.length);
+                dos.write(stBytes);
+                System.out.println("Public key was sent\n");
+                dos.flush();
+
+            } else if(getSecretKey() == null) { // IPv4.matcher(tmp.substring(0, 11)).matches()
+                byte[] decrypted = CryptoUtil.decryptRSA(theBytes, theBytes.length, loadRSAPrivateKey());
+
+                SecretKey sk = new SecretKeySpec(decrypted, "AES");
+                setSecretKey(sk);
+
+                System.out.println("New message received from client: " + new String(sk.getEncoded(), StandardCharsets.UTF_8));
+
+//                String response = "Received secret key from client!";
+//                dos.writeInt(response.getBytes().length);
+//                dos.write(response.getBytes());
+//                dos.flush();
+
+            } else {
+                byte[] decrypted = CryptoUtil.decryptAES(theBytes, theBytes.length, getSecretKey());
+
+                String st = new String(decrypted, StandardCharsets.UTF_8);
+                System.out.println("Message received from client: " + st);
+
+                String response = "Received secret key from client!";
+                dos.writeInt(response.getBytes().length);
+                dos.write(response.getBytes());
+                dos.flush();
             }
+
+
+
+//            System.out.println("New message recieved from client: " + tmp);
+
+//            System.out.println(theBytes.length);
+//            received = new String(theBytes, StandardCharsets.UTF_8);
+//            System.out.println("Recieved from client: " + received + "\n");
+//            System.out.println("Sending public key back to client\n");
+
+//            PublicKey pk = loadRSAPublicKey();
+
+//            DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
+//            byte[] stBytes = pk.getEncoded();
+
+//            dos.writeInt(stBytes.length);
+//            dos.write(stBytes);
+//            dos.flush();
+
+//            byteLength = dis.readInt();
+//            theBytes = new byte[byteLength];
+//            dis.readFully(theBytes);
+
+//            CryptoUtil.decryptRSA(theBytes, theBytes.length, loadRSAPrivateKey());
+
+//            byte[] decrypted = CryptoUtil.decryptRSA(theBytes, theBytes.length, loadRSAPrivateKey());
+
+//            SecretKey sk = new SecretKeySpec(decrypted, "AES");
+//            setSecretKey(sk);
+
+
+//            received = new String(sk.getEncoded(), StandardCharsets.UTF_8);
+//            System.out.println("Recieved from client: " + received + "\n");
+
+
+//            String test = "Dette er en test for å sjekke secret key";
+
+//            CryptoUtil.encryptAES(test.getBytes(), test.length(), getSecretKey());
+//            byte[] testEncrypted = CryptoUtil.encryptAES(test.getBytes(), test.getBytes().length, getSecretKey());
+
+//            dos.writeInt(testEncrypted.length);
+//            System.out.println("Length of symmetric encrypted message: " + testEncrypted.length);
+
+//            dos.write(testEncrypted);
+//            String tmp2 = new String(testEncrypted, StandardCharsets.UTF_8);
+//            System.out.println("Symmetric encrypted message: " + tmp2);
+//            dos.flush();
+
+
+
+
+
+            /*if(secretKey != null) {
+                break;
+            }*/
         }
 
     }
@@ -164,14 +221,14 @@ public class OnionNode {
         String pubOutFile = "rsa_pub.pub";
         String pvtOutFile = "rsa_pvt.key";
 
-        File dir = new File("./keys/");
+        File dir = new File("./src/main/java/keys/");
         boolean dirCreated = dir.mkdir();
 
         if(dirCreated) {
             System.out.println("Directory created");
 
-            File rsaPub = new File("./keys/" + pubOutFile);
-            File rsaPvt = new File("./keys/" + pvtOutFile);
+            File rsaPub = new File("./src/main/java/keys/" + pubOutFile);
+            File rsaPvt = new File("./src/main/java/keys/" + pvtOutFile);
 
             try(FileOutputStream fosPub = new FileOutputStream(rsaPub)) {
                 fosPub.write(pub.getEncoded());
@@ -190,7 +247,7 @@ public class OnionNode {
     private PrivateKey loadRSAPrivateKey() {
 
         try {
-            Path path = Paths.get("./keys/rsa_pvt.key");
+            Path path = Paths.get("./src/main/java/keys/rsa_pvt.key");
             byte[] bytes = Files.readAllBytes(path);
 
             PKCS8EncodedKeySpec ks = new PKCS8EncodedKeySpec(bytes);
@@ -208,7 +265,7 @@ public class OnionNode {
     private PublicKey loadRSAPublicKey() {
 
         try {
-            Path path = Paths.get("./keys/rsa_pub.pub");
+            Path path = Paths.get("./src/main/java/keys/rsa_pub.pub");
             byte[] bytes = Files.readAllBytes(path);
 
             X509EncodedKeySpec ks = new X509EncodedKeySpec(bytes);
@@ -235,14 +292,15 @@ public class OnionNode {
         file.delete();
     }
 
-    public static void main(String[] args) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+    public static void main(String[] args) throws Exception {
         List<String> argsList = Arrays.asList(args);
 
         if(argsList.contains("-p")) {
             int port = Integer.parseInt(argsList.get(argsList.indexOf("-p") + 1));
             OnionNode node = new OnionNode(port);
-            //node.createRSA();
+            node.createRSA();
             node.setupConnection();
+            node.cleanUp(new File("./src/main/java/keys"));
 
 
 
