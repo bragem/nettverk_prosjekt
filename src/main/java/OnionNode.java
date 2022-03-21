@@ -31,6 +31,8 @@ public class OnionNode {
 
     private ServerSocket serverSocket;
     private Socket socket;
+    private String prevIP;
+    private String nextIP;
 
     private Pattern IPv4 = Pattern.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
 
@@ -72,18 +74,19 @@ public class OnionNode {
         serverSocket = new ServerSocket(port);
 
         Socket connection = serverSocket.accept();
+        prevIP = connection.getLocalAddress().getHostAddress();
         DataInputStream dis = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
 
         int byteLength = 0;
-        byte[] theBytes;
+        byte[] bytes;
         String received;
 
         while(true) {
             byteLength = dis.readInt();
-            theBytes = new byte[byteLength];
-            dis.readFully(theBytes);
+            bytes = new byte[byteLength];
+            dis.readFully(bytes);
 
-            String tmp = new String(theBytes, StandardCharsets.UTF_8);
+            String tmp = new String(bytes, StandardCharsets.UTF_8);
 
             DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
 
@@ -103,7 +106,7 @@ public class OnionNode {
                 dos.flush();
 
             } else if(getSecretKey() == null) { // IPv4.matcher(tmp.substring(0, 11)).matches()
-                byte[] decrypted = CryptoUtil.decryptRSA(theBytes, theBytes.length, loadRSAPrivateKey());
+                byte[] decrypted = CryptoUtil.decryptRSA(bytes, bytes.length, loadRSAPrivateKey());
 
                 SecretKey sk = new SecretKeySpec(decrypted, "AES");
                 setSecretKey(sk);
@@ -116,7 +119,8 @@ public class OnionNode {
 //                dos.flush();
 
             } else {
-                byte[] decrypted = CryptoUtil.decryptAES(theBytes, theBytes.length, getSecretKey());
+
+                byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
 
                 String st = new String(decrypted, StandardCharsets.UTF_8);
                 System.out.println("Message received from client: " + st);
@@ -128,6 +132,8 @@ public class OnionNode {
                 dos.writeInt(encrypted.length);
                 dos.write(encrypted);
                 dos.flush();
+
+                forwardData(bytes, dos, dis);
             }
 
 
@@ -189,8 +195,15 @@ public class OnionNode {
     }
 
 
-    public void forwardData(String ip, int port) throws IOException {
-        socket = new Socket(ip, port);
+    public void forwardData(byte[] bytes, DataOutputStream dos, DataInputStream dis) throws Exception {
+        byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
+
+        String st = new String(decrypted, StandardCharsets.UTF_8);
+        System.out.println("Message received from client: " + st);
+
+        while(true) {
+
+        }
 
     }
 
