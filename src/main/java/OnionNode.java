@@ -77,7 +77,7 @@ public class OnionNode {
         prevIP = connection.getLocalAddress().getHostAddress();
         DataInputStream dis = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
 
-        int byteLength = 0;
+        int byteLength;
         byte[] bytes;
         String received;
 
@@ -112,14 +112,7 @@ public class OnionNode {
                 setSecretKey(sk);
 
                 System.out.println("New message received from client: " + new String(sk.getEncoded(), StandardCharsets.UTF_8));
-
-//                String response = "Received secret key from client!";
-//                dos.writeInt(response.getBytes().length);
-//                dos.write(response.getBytes());
-//                dos.flush();
-
             } else {
-
                 byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
 
                 String st = new String(decrypted, StandardCharsets.UTF_8);
@@ -135,61 +128,6 @@ public class OnionNode {
 
                 forwardData(bytes, dos, dis);
             }
-
-
-
-//            System.out.println("New message recieved from client: " + tmp);
-
-//            System.out.println(theBytes.length);
-//            received = new String(theBytes, StandardCharsets.UTF_8);
-//            System.out.println("Recieved from client: " + received + "\n");
-//            System.out.println("Sending public key back to client\n");
-
-//            PublicKey pk = loadRSAPublicKey();
-
-//            DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
-//            byte[] stBytes = pk.getEncoded();
-
-//            dos.writeInt(stBytes.length);
-//            dos.write(stBytes);
-//            dos.flush();
-
-//            byteLength = dis.readInt();
-//            theBytes = new byte[byteLength];
-//            dis.readFully(theBytes);
-
-//            CryptoUtil.decryptRSA(theBytes, theBytes.length, loadRSAPrivateKey());
-
-//            byte[] decrypted = CryptoUtil.decryptRSA(theBytes, theBytes.length, loadRSAPrivateKey());
-
-//            SecretKey sk = new SecretKeySpec(decrypted, "AES");
-//            setSecretKey(sk);
-
-
-//            received = new String(sk.getEncoded(), StandardCharsets.UTF_8);
-//            System.out.println("Recieved from client: " + received + "\n");
-
-
-//            String test = "Dette er en test for å sjekke secret key";
-
-//            CryptoUtil.encryptAES(test.getBytes(), test.length(), getSecretKey());
-//            byte[] testEncrypted = CryptoUtil.encryptAES(test.getBytes(), test.getBytes().length, getSecretKey());
-
-//            dos.writeInt(testEncrypted.length);
-//            System.out.println("Length of symmetric encrypted message: " + testEncrypted.length);
-
-//            dos.write(testEncrypted);
-//            String tmp2 = new String(testEncrypted, StandardCharsets.UTF_8);
-//            System.out.println("Symmetric encrypted message: " + tmp2);
-//            dos.flush();
-
-
-
-
-
-            /*if(secretKey != null) {
-                break;
-            }*/
         }
 
     }
