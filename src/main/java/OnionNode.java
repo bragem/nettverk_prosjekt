@@ -121,9 +121,12 @@ public class OnionNode {
                 String st = new String(decrypted, StandardCharsets.UTF_8);
                 System.out.println("Message received from client: " + st);
 
-                String response = "Received secret key from client!";
-                dos.writeInt(response.getBytes().length);
-                dos.write(response.getBytes());
+                String response = "My secret key is now set!";
+                byte[] responseBytes = response.getBytes();
+                byte[] encrypted = CryptoUtil.encryptAES(responseBytes, responseBytes.length, getSecretKey());
+
+                dos.writeInt(encrypted.length);
+                dos.write(encrypted);
                 dos.flush();
             }
 
