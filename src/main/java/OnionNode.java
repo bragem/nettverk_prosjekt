@@ -144,33 +144,77 @@ public class OnionNode {
 
                 System.out.println("Message received from client: " + st);
 
+                forwardData(connection, st);
                 setupComplete = true;
             }
         }
 
-        forwardData(connection);
 
     }
 
 
-    public void forwardData(Socket connection) throws Exception {
+    public void forwardData(Socket connection, String firstMessage) throws Exception {
 
-        DataInputStream dis = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
+        boolean quit = false;
+        DataInputStream readFromPrev = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
+        DataOutputStream writeToPrev = new DataOutputStream((connection.getOutputStream()));
 
         socket = new Socket(nextIP, nextPort);
+        DataInputStream readFromNext = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+        DataOutputStream writeToNext = new DataOutputStream((socket.getOutputStream()));
 
-        int byteLength;
-        byte[] bytes;
 
-        while(true) {
-            byteLength = dis.readInt();
-            bytes = new byte[byteLength];
-            dis.readFully(bytes);
+        writeToNext.writeInt(firstMessage.getBytes().length);
+        writeToNext.write(firstMessage.getBytes());
+        writeToNext.flush();
 
-            if(connection.getInetAddress().getHostAddress().equals(prevIP)) {
-                byte[] encrypted = CryptoUtil.encryptAES(bytes, bytes.length, getSecretKey());
-                
+        String lastAction = "writeToNext";
+
+        int byteLength = 0;
+        byte[] bytes = null;
+        byte[] encrypted = null;
+
+        while(!quit) {
+
+            switch(lastAction){
+                case "writeToNext":
+                    //trenger sjekk om det står quit eller teardown i meldinga
+                    lastAction = "readFromNext";
+
+                    byteLength = readFromNext.readInt();
+                    bytes = new byte[byteLength];
+                    readFromNext.readFully(bytes);
+
+                    break;
+                case "readFromNext":
+                    lastAction = "writeToPrev";
+
+                    encrypted = CryptoUtil.encryptAES(bytes, bytes.length, getSecretKey());
+                    writeToPrev.writeInt(encrypted.length);
+                    writeToPrev.write(encrypted);
+
+                    break;
+                case "writeToPrev":
+                    lastAction = "readFromPrev";
+                    byteLength = readFromPrev.readInt();
+                    bytes = new byte[byteLength];
+                    readFromPrev.readFully(bytes);
+
+                    break;
+                case "readFromPrev":
+                    lastAction = "writeToNext";
+
+                    encrypted = CryptoUtil.encryptAES(bytes, bytes.length, getSecretKey());
+                    writeToPrev.writeInt(encrypted.length);
+                    writeToPrev.write(encrypted);
+
+                    break;
+                default:
+                    System.out.println("wtf?");
             }
+
+
+//            quit = true;
         }
 
     }
