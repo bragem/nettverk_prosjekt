@@ -20,7 +20,7 @@ public class OnionClient {
     DataInputStream reader;
     DataOutputStream writer;
 
-    private final int HEADER = 34;
+    private final int HEADER = 24;
     private int nrOfNodes;
     private int[] portsToVisit;
     private String[] inetAddresses;
@@ -52,8 +52,10 @@ public class OnionClient {
                 inetAddresses[i] = split[0];
                 portsToVisit[i] = Integer.parseInt(split[1]);
                 line = br.readLine();
+                System.out.println(inetAddresses[i] + ":" + portsToVisit[i]);
                 i++;
             }
+
             inetAddresses[i] = endIP;
             portsToVisit[i] = endPort;
         } catch (IOException e) {
@@ -61,7 +63,7 @@ public class OnionClient {
         }
 //        inetAddresses[1] = "10.24.52.125";
 //        portsToVisit[1] = 1234;
-        System.out.println(inetAddresses[0] + ":" + portsToVisit[0]);
+//        System.out.println(inetAddresses[0] + ":" + portsToVisit[0]);
         this.socket = new Socket(inetAddresses[0], portsToVisit[0]);
         reader = new DataInputStream(socket.getInputStream());
         writer = new DataOutputStream(socket.getOutputStream());
@@ -131,13 +133,19 @@ public class OnionClient {
                 byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[0].getEncoded(), secretKeys[0].getEncoded().length, publicKeys[0]);
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
-                System.out.println("node 1 is done");
+                byte[] confirmation = new byte[reader.readInt()];
+                reader.readFully(confirmation);
+                confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[0]);
+                System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i+1));
             } else {
                 publicKeys[i] = connectSetup(i, msg);
-                byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[0].getEncoded(), secretKeys[0].getEncoded().length, publicKeys[0]);
+                byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[i].getEncoded(), secretKeys[i].getEncoded().length, publicKeys[i]);
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
-                System.out.println("node " + i + " is done");
+                byte[] confirmation = new byte[reader.readInt()];
+                reader.readFully(confirmation);
+                confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[i]);
+                System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i+1));
             }
         }
     }
@@ -159,43 +167,52 @@ public class OnionClient {
     private PublicKey connectSetup(int i, String msg) throws Exception{
 //        for (int i = 0; i < nrOfEncrypting; i++) {
 
-            //encrypt secret keys
-            byte[] secretKeyByte = secretKeys[i-1].getEncoded();
-            byte[] cryptData = CryptoUtil.encryptRSA(secretKeyByte, secretKeyByte.length, publicKeys[i]);
+        //encrypt secret keys
+        byte[] secretKeyByte = secretKeys[i-1].getEncoded();
+        byte[] cryptData = CryptoUtil.encryptRSA(secretKeyByte, secretKeyByte.length, publicKeys[i-1]);
+        byte[] msgBytes = CryptoUtil.encryptAES(msg.getBytes(), msg.getBytes().length, secretKeys[i-1]);
 
-            for (int j = i - 1 ; j >= 0; j--) {
-                ByteBuffer buffer = ByteBuffer.allocate(cryptData.length + HEADER + msg.getBytes().length);
-                buffer.put(Byte.parseByte(inetAddresses[j]));
-                buffer.put((byte) ':');
-                buffer.put(String.valueOf(portsToVisit[j]).getBytes());
-                buffer.put((byte) '/');
+        for (int j = i ; j >= 0; j--) {
+            ByteBuffer buffer = ByteBuffer.allocate(HEADER + msg.getBytes().length);
+
+            System.out.println(inetAddresses[j]);
+            buffer.put((inetAddresses[j]).getBytes());
+            buffer.put((byte) ':');
+            buffer.put(String.valueOf(portsToVisit[j]).getBytes());
+            buffer.put((byte) '/');
 //                if(j == i-1) {
-                    buffer.put(CryptoUtil.encryptAES(msg.getBytes(), msg.getBytes().length, secretKeys[j]));
+            buffer.put(msgBytes);
 //                }
-                cryptData = new byte[cryptData.length + HEADER];
-                buffer.flip();
+            cryptData = new byte[(inetAddresses[j]).getBytes().length +
+                    String.valueOf(portsToVisit[j]).getBytes().length +
+                    (":").getBytes().length + ("/").getBytes().length +
+                    msg.getBytes().length];
+            System.out.println(buffer.position());
+            System.out.println(buffer.remaining());
+            buffer.flip();
+            System.out.println(buffer.position());
+            System.out.println(buffer.remaining());
+            buffer.get(cryptData);
 
-                buffer.get(cryptData);
+            cryptData = CryptoUtil.encryptAES(cryptData, cryptData.length, secretKeys[j]);
+        }
 
-                cryptData = CryptoUtil.encryptAES(cryptData, cryptData.length, secretKeys[j-1]);
+        writer.writeInt(cryptData.length);
+        writer.write(cryptData);
+
+        int l = reader.readInt();
+        byte[] decrypted = new byte[l];
+        reader.readFully(decrypted);
+
+        for (int j = 0; j <= i; j++) {
+            decrypted = CryptoUtil.decryptAES(decrypted, l, secretKeys[j]);
+            if (j==i){//TODO sett en skikkelig sjekk her
+                System.out.println("Received ack from node " + portsToVisit[i]);
             }
+        }
 
-            writer.writeInt(cryptData.length);
-            writer.write(cryptData);
-
-            int l = reader.readInt();
-            byte[] decrypted = new byte[l];
-            reader.readFully(decrypted);
-
-            for (int j = 0; j <= i; j++) {
-                decrypted = CryptoUtil.decryptAES(decrypted, l, secretKeys[j]);
-                if (j==i){//TODO sett en skikkelig sjekk her
-                    System.out.println("Received ack from node " + portsToVisit[i]);
-                }
-            }
-
-            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decrypted);
-            return KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
+        X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decrypted);
+        return KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
 //        }
     }
 
@@ -204,18 +221,21 @@ public class OnionClient {
         // encryption
         for (int i = nrOfNodes -1; i >= 0; i--) {
             ByteBuffer buffer;
-//            if(i != nrOfNodes -1){
+            if(i != nrOfNodes -1){
                 //TODO clean up and update length plus general upgrade
-                buffer = ByteBuffer.allocate(byteMessage.length + HEADER);
+                buffer = ByteBuffer.allocate(byteMessage.length +
+                        (inetAddresses[i+1]).getBytes().length +
+                        String.valueOf(portsToVisit[i+1]).getBytes().length +
+                        (":").getBytes().length + ("/").getBytes().length);
                 buffer.put(inetAddresses[i+1].getBytes());
                 buffer.put((byte)':');
                 buffer.put(String.valueOf(portsToVisit[i+1]).getBytes());
                 buffer.put((byte) '/');
-//            }
-//            else {
+            }
+            else {
 //                raw msg for final destination
-//                buffer = ByteBuffer.allocate(byteMessage.length);
-//            }
+                buffer = ByteBuffer.allocate(byteMessage.length);
+            }
             buffer.put(byteMessage);
             buffer.flip();
 
