@@ -107,9 +107,9 @@ public class OnionClient {
             System.out.println("Message being encrypted");
 
             //TODO ENCRYPT the bytemessage
-            byte[] encryptMessage = encrypt(byteMessage);
-            writer.writeInt(encryptMessage.length);
-            writer.write(encryptMessage);
+//            byte[] encryptMessage = encrypt(byteMessage);
+//            writer.writeInt(encryptMessage.length);
+//            writer.write(encryptMessage);
             System.out.println("Message sent: " + msg + "\n");
 
             //Receiving messages
@@ -139,9 +139,11 @@ public class OnionClient {
                 System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i+1));
             } else {
                 publicKeys[i] = connectSetup(i, msg);
-                byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[i].getEncoded(), secretKeys[i].getEncoded().length, publicKeys[i]);
+                byte[] secretKey = new byte [245];
+                secretKey = encrypt(i,secretKey);
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
+
                 byte[] confirmation = new byte[reader.readInt()];
                 reader.readFully(confirmation);
                 confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[i]);
@@ -170,41 +172,42 @@ public class OnionClient {
         //encrypt secret keys
         byte[] secretKeyByte = secretKeys[i-1].getEncoded();
         byte[] cryptData = CryptoUtil.encryptRSA(secretKeyByte, secretKeyByte.length, publicKeys[i-1]);
-        byte[] msgBytes = CryptoUtil.encryptAES(msg.getBytes(), msg.getBytes().length, secretKeys[i-1]);
+        byte[] msgBytes = msg.getBytes();
 
         ByteBuffer buffer;
-        for (int j = i ; j >= 0; j--) {
-            if (j == i){
-                buffer = ByteBuffer.allocate((inetAddresses[j]).getBytes().length
-                        + String.valueOf(portsToVisit[j]).getBytes().length
-                        + msg.getBytes().length);
-            } else {
-                buffer = ByteBuffer.allocate((inetAddresses[j]).getBytes().length
-                    + String.valueOf(portsToVisit[j]).getBytes().length);
-            }
+        for (int j = i - 1 ; j >= 0; j--) {
+            buffer = ByteBuffer.allocate((inetAddresses[j+1]).getBytes().length
+                    + String.valueOf(portsToVisit[j+1]).getBytes().length
+                    + ":".getBytes().length
+                    + "/".getBytes().length
+                    + msgBytes.length);
+
             System.out.println(inetAddresses[j]);
-            buffer.put((inetAddresses[j]).getBytes());
+
+            buffer.put((inetAddresses[j+1]).getBytes());
             buffer.put((byte) ':');
-            buffer.put(String.valueOf(portsToVisit[j]).getBytes());
+            buffer.put(String.valueOf(portsToVisit[j+1]).getBytes());
             buffer.put((byte) '/');
-            if(j == i) {
-                buffer.put(msgBytes);
-            }
-            if (j == i){
-                cryptData = new byte[(inetAddresses[j]).getBytes().length
-                        + String.valueOf(portsToVisit[j]).getBytes().length
-                        + msg.getBytes().length];
-            } else {
-                cryptData = new byte[(inetAddresses[j]).getBytes().length
-                        + String.valueOf(portsToVisit[j]).getBytes().length];
-            }
-            System.out.println(buffer.position());
-            System.out.println(buffer.remaining());
+            buffer.put(msgBytes);
+
+            cryptData = new byte[(inetAddresses[j+1]).getBytes().length
+                    + String.valueOf(portsToVisit[j+1]).getBytes().length
+                    + ":".getBytes().length
+                    + "/".getBytes().length
+                    + msg.getBytes().length];
+
+//            System.out.println(buffer.position());
+//            System.out.println(buffer.remaining());
+
             buffer.flip();
-            System.out.println(buffer.position());
-            System.out.println(buffer.remaining());
+
+//            System.out.println(buffer.position());
+//            System.out.println(buffer.remaining());
+
             buffer.get(cryptData);
-            System.out.println(inetAddresses[j]);
+
+            byte[] de = cryptData;
+
             cryptData = CryptoUtil.encryptAES(cryptData, cryptData.length, secretKeys[j]);
         }
 
@@ -212,14 +215,18 @@ public class OnionClient {
         writer.write(cryptData);
 
         int l = reader.readInt();
+        System.out.println("\n" + l + "\n");
         byte[] decrypted = new byte[l];
         reader.readFully(decrypted);
 
-        for (int j = 0; j <= i; j++) {
+        System.out.println(new String(decrypted, StandardCharsets.UTF_8) + "\n");
+
+        for (int j = 0; j < i; j++) {
+            System.out.println(j);
             decrypted = CryptoUtil.decryptAES(decrypted, l, secretKeys[j]);
-            if (j==i){//TODO sett en skikkelig sjekk her
-                System.out.println("Received ack from node " + portsToVisit[i]);
-            }
+//            if (j==i){//TODO sett en skikkelig sjekk her
+//                System.out.println("Received ack from node " + portsToVisit[j]);
+//            }
         }
 
         X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decrypted);
@@ -227,33 +234,34 @@ public class OnionClient {
 //        }
     }
 
-    public byte[] encrypt(byte[] msg) throws Exception {
+    public byte[] encrypt(int nowNode, byte[] msg) throws Exception {
         byte[] byteMessage = Arrays.copyOf(msg, msg.length);
         // encryption
-        for (int i = nrOfNodes -1; i >= 0; i--) {
+        for (int i = nowNode -1; i >= 0; i--) {
             ByteBuffer buffer;
-            if(i != nrOfNodes -1){
+            if(i != nowNode -1){
                 //TODO clean up and update length plus general upgrade
-                buffer = ByteBuffer.allocate(byteMessage.length +
-                        (inetAddresses[i+1]).getBytes().length +
-                        String.valueOf(portsToVisit[i+1]).getBytes().length +
-                        (":").getBytes().length + ("/").getBytes().length);
-                buffer.put(inetAddresses[i+1].getBytes());
-                buffer.put((byte)':');
-                buffer.put(String.valueOf(portsToVisit[i+1]).getBytes());
-                buffer.put((byte) '/');
+                buffer = ByteBuffer.allocate(byteMessage.length);
+                buffer.put(byteMessage);
+                buffer.flip();
+
+                byteMessage = new byte[buffer.limit()];
+                buffer.get(byteMessage);
+
+                byteMessage = CryptoUtil.encryptAES(byteMessage, byteMessage.length, secretKeys[i]);
             }
             else {
 //                raw msg for final destination
                 buffer = ByteBuffer.allocate(byteMessage.length);
+
+                buffer.put(byteMessage);
+                buffer.flip();
+
+                byteMessage = new byte[buffer.limit()];
+                buffer.get(byteMessage);
+                System.out.println(byteMessage.length);
+                byteMessage = CryptoUtil.encryptRSA(byteMessage, byteMessage.length, publicKeys[nowNode]);
             }
-            buffer.put(byteMessage);
-            buffer.flip();
-
-            byteMessage = new byte[buffer.limit()];
-            buffer.get(byteMessage);
-
-            byteMessage = CryptoUtil.encryptAES(byteMessage, byteMessage.length, secretKeys[i]);
         }
 
         return byteMessage;
