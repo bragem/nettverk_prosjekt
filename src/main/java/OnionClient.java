@@ -20,7 +20,7 @@ public class OnionClient {
     DataInputStream reader;
     DataOutputStream writer;
 
-    private final int HEADER = 24;
+    private final int HEADER = 7;
     private int nrOfNodes;
     private int[] portsToVisit;
     private String[] inetAddresses;
@@ -172,24 +172,39 @@ public class OnionClient {
         byte[] cryptData = CryptoUtil.encryptRSA(secretKeyByte, secretKeyByte.length, publicKeys[i-1]);
         byte[] msgBytes = CryptoUtil.encryptAES(msg.getBytes(), msg.getBytes().length, secretKeys[i-1]);
 
+        ByteBuffer buffer;
         for (int j = i ; j >= 0; j--) {
-            ByteBuffer buffer = ByteBuffer.allocate(HEADER + msg.getBytes().length);
-            if(j == i) {
-                System.out.println(inetAddresses[j]);
-                buffer.put((inetAddresses[j]).getBytes());
-                buffer.put((byte) ':');
-                buffer.put(String.valueOf(portsToVisit[j]).getBytes());
-                buffer.put((byte) '/');
-                buffer.put(msgBytes);
-                cryptData = new byte[HEADER + msg.getBytes().length];
-                System.out.println(buffer.position());
-                System.out.println(buffer.remaining());
-                buffer.flip();
-                System.out.println(buffer.position());
-                System.out.println(buffer.remaining());
-                buffer.get(cryptData);
-                System.out.println(inetAddresses[j]);
+            if (j == i){
+                buffer = ByteBuffer.allocate((inetAddresses[j]).getBytes().length
+                        + String.valueOf(portsToVisit[j]).getBytes().length
+                        + msg.getBytes().length);
+            } else {
+                buffer = ByteBuffer.allocate((inetAddresses[j]).getBytes().length
+                    + String.valueOf(portsToVisit[j]).getBytes().length);
             }
+            System.out.println(inetAddresses[j]);
+            buffer.put((inetAddresses[j]).getBytes());
+            buffer.put((byte) ':');
+            buffer.put(String.valueOf(portsToVisit[j]).getBytes());
+            buffer.put((byte) '/');
+            if(j == i) {
+                buffer.put(msgBytes);
+            }
+            if (j == i){
+                cryptData = new byte[(inetAddresses[j]).getBytes().length
+                        + String.valueOf(portsToVisit[j]).getBytes().length
+                        + msg.getBytes().length];
+            } else {
+                cryptData = new byte[(inetAddresses[j]).getBytes().length
+                        + String.valueOf(portsToVisit[j]).getBytes().length];
+            }
+            System.out.println(buffer.position());
+            System.out.println(buffer.remaining());
+            buffer.flip();
+            System.out.println(buffer.position());
+            System.out.println(buffer.remaining());
+            buffer.get(cryptData);
+            System.out.println(inetAddresses[j]);
             cryptData = CryptoUtil.encryptAES(cryptData, cryptData.length, secretKeys[j]);
         }
 
