@@ -88,7 +88,9 @@ public class OnionNode {
         byte[] bytes;
         String received;
 
-        while(true) {
+        boolean setupComplete = false;
+
+        while(!setupComplete) {
             byteLength = dis.readInt();
             bytes = new byte[byteLength];
             dis.readFully(bytes);
@@ -119,19 +121,6 @@ public class OnionNode {
                 setSecretKey(sk);
 
                 System.out.println("New message received from client: " + new String(sk.getEncoded(), StandardCharsets.UTF_8));
-            } else {
-                byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
-
-                String st = new String(decrypted, StandardCharsets.UTF_8);
-
-                nextIP = st.split("[:/]")[0];
-                nextPort = Integer.parseInt(st.split("[:/]")[1]);
-                System.out.println("Next IP is: " + nextIP + "\n");
-                System.out.println("Next Port is: " + nextPort + "\n");
-
-
-
-                System.out.println("Message received from client: " + st);
 
                 String response = "My secret key is now set!";
                 byte[] responseBytes = response.getBytes();
@@ -140,10 +129,26 @@ public class OnionNode {
                 dos.writeInt(encrypted.length);
                 dos.write(encrypted);
                 dos.flush();
+            } else {
+                byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
 
-                forwardData(connection);
+                String st = new String(decrypted, StandardCharsets.UTF_8);
+
+                nextIP = st.split("[:/]")[0];
+                nextPort = Integer.parseInt(st.split("[:/]")[1]);
+                String message = st.split("[:/]")[2];
+
+
+                System.out.println("Next IP is: " + nextIP + "\n");
+                System.out.println("Next Port is: " + nextPort + "\n");
+
+                System.out.println("Message received from client: " + st);
+
+                setupComplete = true;
             }
         }
+
+        forwardData(connection);
 
     }
 
