@@ -78,7 +78,7 @@ public class OnionNode {
         serverSocket = new ServerSocket(port);
 
         Socket connection = serverSocket.accept();
-        prevIP = connection.getLocalAddress().getHostAddress();
+        prevIP = connection.getRemoteSocketAddress().toString().split("[/:]")[1];
         prevPort = connection.getPort();
 
         System.out.println("IP of connected client: " + prevIP + "\n");
@@ -101,8 +101,8 @@ public class OnionNode {
 
 
             if("GivePK!!!".equals(tmp)) {
-                System.out.println("Received from client: " + tmp + "\n");
-                System.out.println("Sending public key back to client\n");
+                System.out.println("Received from client: " + tmp + "");
+                System.out.println("Sending public key back to client...");
 
                 PublicKey pk = loadRSAPublicKey();
 
@@ -139,12 +139,12 @@ public class OnionNode {
                 String message = st.split("[:/]")[2];
 
 
-                System.out.println("Next IP is: " + nextIP + "\n");
+                System.out.println("Next IP is: " + nextIP + "");
                 System.out.println("Next Port is: " + nextPort + "\n");
 
                 System.out.println("Message received from client: " + st);
 
-                forwardData(connection, st);
+                forwardData(connection, message);
                 setupComplete = true;
             }
         }
@@ -154,6 +154,7 @@ public class OnionNode {
 
 
     public void forwardData(Socket connection, String firstMessage) throws Exception {
+        System.out.println("Message to next node is: " + firstMessage);
 
         boolean quit = false;
         DataInputStream readFromPrev = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
@@ -165,7 +166,11 @@ public class OnionNode {
 
 
         writeToNext.writeInt(firstMessage.getBytes().length);
+        System.out.println("Length of firstMessage: " + firstMessage.getBytes().length);
+
         writeToNext.write(firstMessage.getBytes());
+        System.out.println("First message to next node is now sent!");
+
         writeToNext.flush();
 
         String lastAction = "writeToNext";
