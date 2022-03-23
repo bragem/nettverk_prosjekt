@@ -65,14 +65,14 @@ public class OnionClient {
 //        portsToVisit[1] = 1234;
 //        System.out.println(inetAddresses[0] + ":" + portsToVisit[0]);
         this.socket = new Socket(inetAddresses[0], portsToVisit[0]);
-        reader = new DataInputStream(socket.getInputStream());
+        reader = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
         writer = new DataOutputStream(socket.getOutputStream());
     }
 
     private void createSymmetricKeys() throws NoSuchAlgorithmException {
         for(int i = 0; i < nrOfNodes; i++) {
             KeyGenerator kg = KeyGenerator.getInstance("AES");
-            kg.init(128);
+            kg.init(256);
             secretKeys[i] = kg.generateKey();
         }
     }
@@ -185,26 +185,37 @@ public class OnionClient {
 
         ByteBuffer buffer;
         for (int j = i - 1 ; j >= 0; j--) {
-            buffer = ByteBuffer.allocate((inetAddresses[j+1]).getBytes().length
-                    + String.valueOf(portsToVisit[j+1]).getBytes().length
-                    + ":".getBytes().length
-                    + "/".getBytes().length
-                    + msgBytes.length);
+            if (j== i-1) {
+                buffer = ByteBuffer.allocate((inetAddresses[j + 1]).getBytes().length
+                        + String.valueOf(portsToVisit[j + 1]).getBytes().length
+                        + ":".getBytes().length
+                        + "/".getBytes().length
+                        + msgBytes.length);
 
-            System.out.println(inetAddresses[j]+":"+portsToVisit[j]);
+                System.out.println(inetAddresses[j + 1] + ":" + portsToVisit[j + 1]);
 
-            buffer.put((inetAddresses[j+1]).getBytes());
-            buffer.put((byte) ':');
-            buffer.put(String.valueOf(portsToVisit[j+1]).getBytes());
-            buffer.put((byte) '/');
-            buffer.put(msgBytes);
+                buffer.put((inetAddresses[j + 1]).getBytes());
+                buffer.put((byte) ':');
+                buffer.put(String.valueOf(portsToVisit[j + 1]).getBytes());
+                buffer.put((byte) '/');
+                buffer.put(msgBytes);
 
-            cryptData = new byte[(inetAddresses[j+1]).getBytes().length
-                    + String.valueOf(portsToVisit[j+1]).getBytes().length
-                    + ":".getBytes().length
-                    + "/".getBytes().length
-                    + msg.getBytes().length];
+                cryptData = new byte[(inetAddresses[j + 1]).getBytes().length
+                        + String.valueOf(portsToVisit[j + 1]).getBytes().length
+                        + ":".getBytes().length
+                        + "/".getBytes().length
+                        + msg.getBytes().length];
+            } else {
+                msg = "next";
+                msgBytes = msg.getBytes();
+                buffer = ByteBuffer.allocate(msgBytes.length);
 
+                System.out.println(inetAddresses[j + 1] + ":" + portsToVisit[j + 1]);
+
+                buffer.put(msgBytes);
+
+                cryptData = new byte[msg.getBytes().length];
+            }
 //            System.out.println(buffer.position());
 //            System.out.println(buffer.remaining());
 
