@@ -40,7 +40,7 @@ public class OnionClient {
         this.publicKeys = new PublicKey[nrOfNodes];
         this.portsToVisit = new int[nrOfNodes+1];
         this.inetAddresses = new String[nrOfNodes+1];
-        createSymmetricKeys(nrOfNodes);
+        createSymmetricKeys();
     }
 
     public void setDest() throws IOException {
@@ -69,8 +69,8 @@ public class OnionClient {
         writer = new DataOutputStream(socket.getOutputStream());
     }
 
-    private void createSymmetricKeys(int numberOfKeys) throws NoSuchAlgorithmException {
-        for(int i = 0; i < numberOfKeys; i++) {
+    private void createSymmetricKeys() throws NoSuchAlgorithmException {
+        for(int i = 0; i < nrOfNodes; i++) {
             KeyGenerator kg = KeyGenerator.getInstance("AES");
             kg.init(256);
             secretKeys[i] = kg.generateKey();
@@ -80,7 +80,8 @@ public class OnionClient {
     private void run() throws Exception {
         System.out.println("Receiving public key from node...");
         getPublicKey();
-        System.out.println("Public keys received");
+        System.out.println("\nPublic keys received!");
+        System.out.println("Private keys sent!");
 
         System.out.println("\n\nPlease write your message, enter when finished.");
         System.out.println("Enter '0' without the quotes to exit the program");
@@ -143,7 +144,7 @@ public class OnionClient {
             } else {
                 publicKeys[i] = connectSetup(i, msg);
                 System.out.println("public key received from node " + i);
-                byte[] secretKey = new byte [245];
+                byte[] secretKey = new byte[secretKeys[i].getEncoded().length];
                 secretKey = encrypt(i,secretKey);
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
@@ -151,11 +152,10 @@ public class OnionClient {
                 byte[] confirmation = new byte[reader.readInt()];
                 System.out.println("confirmation received from node " + i);
                 reader.readFully(confirmation);
-                for (int j = 0; j < i; j++) {
-                    System.out.println(j);
+                for (int j = 0; j <= i; j++) {
                     confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[j]);
                 }
-                System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i+1));
+                System.out.println((new String(confirmation, StandardCharsets.UTF_8)) + " -node " + (i));
             }
         }
     }
@@ -245,9 +245,9 @@ public class OnionClient {
     public byte[] encrypt(int nowNode, byte[] msg) throws Exception {
         byte[] byteMessage = Arrays.copyOf(msg, msg.length);
         // encryption
-        for (int i = nowNode -1; i >= 0; i--) {
+        for (int i = nowNode; i >= 0; i--) {
             ByteBuffer buffer;
-            if(i != nowNode -1){
+            if((i != nowNode-1)){
                 //TODO clean up and update length plus general upgrade
                 buffer = ByteBuffer.allocate(byteMessage.length);
                 buffer.put(byteMessage);
@@ -267,7 +267,7 @@ public class OnionClient {
 
                 byteMessage = new byte[buffer.limit()];
                 buffer.get(byteMessage);
-                System.out.println(byteMessage.length);
+
                 byteMessage = CryptoUtil.encryptRSA(byteMessage, byteMessage.length, publicKeys[nowNode]);
             }
         }
