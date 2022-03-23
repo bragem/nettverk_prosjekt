@@ -112,7 +112,7 @@ public class OnionClient {
 //            writer.write(encryptMessage);
             System.out.println("Message sent: " + msg + "\n");
 
-            //Receiving messages
+            //Receiving messages branch setup
             System.out.println("Message from server: ");
             byte[] bytesReceive = new byte[reader.readInt()];
             reader.readFully(bytesReceive);
