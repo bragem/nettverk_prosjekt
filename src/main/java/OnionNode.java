@@ -16,6 +16,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -192,8 +193,7 @@ public class OnionNode {
                     bytes = new byte[byteLength];
                     readFromNext.readFully(bytes);
 
-                    tmp = new String(bytes, StandardCharsets.UTF_8);
-                    System.out.println("Received from next node: " + tmp + "\n");
+                    System.out.println("Received message from next node \n");
 
                     break;
                 case "readFromNext":
@@ -213,8 +213,7 @@ public class OnionNode {
                     bytes = new byte[byteLength];
                     readFromPrev.readFully(bytes);
 
-                    tmp = new String(bytes, StandardCharsets.UTF_8);
-                    System.out.println("Received from prev node: " + tmp + "\n");
+                    System.out.println("Received message from previous node \n");
 
                     break;
                 case "readFromPrev":
