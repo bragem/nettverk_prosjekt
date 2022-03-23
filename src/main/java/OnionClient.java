@@ -107,9 +107,9 @@ public class OnionClient {
             System.out.println("Message being encrypted");
 
             //TODO ENCRYPT the bytemessage
-//            byte[] encryptMessage = encrypt(byteMessage);
-//            writer.writeInt(encryptMessage.length);
-//            writer.write(encryptMessage);
+            byte[] encryptMessage = encryptMessage(byteMessage);
+            writer.writeInt(encryptMessage.length);
+            writer.write(encryptMessage);
             System.out.println("Message sent: " + msg + "\n");
 
             //Receiving messages branch setup
@@ -117,7 +117,10 @@ public class OnionClient {
             byte[] bytesReceive = new byte[reader.readInt()];
             reader.readFully(bytesReceive);
             System.out.println(bytesReceive.length);
-            bytesReceive = CryptoUtil.decryptAES(bytesReceive, bytesReceive.length, secretKeys[0]);
+            for (int j = 0; j < nrOfNodes; j++) {
+                System.out.println(j);
+                bytesReceive = CryptoUtil.decryptAES(bytesReceive, bytesReceive.length, secretKeys[j]);
+            }
             System.out.println(new String(bytesReceive, StandardCharsets.UTF_8));
             //TODO DECRYPT Message method.
 
@@ -272,9 +275,35 @@ public class OnionClient {
         return byteMessage;
     }
 
+    public byte[] encryptMessage(byte[] msg) throws Exception {
+        byte[] msgBytes = Arrays.copyOf(msg, msg.length);
+
+        for (int i = nrOfNodes-1; i >= 0; i--) {
+            ByteBuffer byteBuffer;
+            if (i == nrOfNodes-1) {
+                byteBuffer = ByteBuffer.allocate(msgBytes.length
+                                + inetAddresses[inetAddresses.length-1].getBytes().length
+                                + String.valueOf(portsToVisit[portsToVisit.length-1]).getBytes().length
+                        );
+                byteBuffer.put(msgBytes);
+            } else {
+                byteBuffer = ByteBuffer.allocate(msgBytes.length);
+                byteBuffer.put(msgBytes);
+            }
+
+            byteBuffer.flip();
+
+            msgBytes = new byte[byteBuffer.limit()];
+            byteBuffer.get(msgBytes);
+
+            msgBytes = CryptoUtil.encryptAES(msgBytes, msgBytes.length, secretKeys[i]);
+        }
+        return msgBytes;
+    }
+
     public static void main(String[] args) throws Exception {
         int tempNodes = 2;
-        OnionClient onionClient = new OnionClient(tempNodes, "9999", 12345);
+        OnionClient onionClient = new OnionClient(tempNodes, "localhost", 8119);
         onionClient.setDest();
 //        onionClient.connectSetup();
         //TODO metode for noekler
