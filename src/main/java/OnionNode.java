@@ -178,7 +178,6 @@ public class OnionNode {
         int byteLength = 0;
         byte[] bytes = null;
         byte[] encrypted = null;
-        String tmp;
 
         while(!quit) {
 
@@ -191,8 +190,7 @@ public class OnionNode {
                     bytes = new byte[byteLength];
                     readFromNext.readFully(bytes);
 
-                    tmp = new String(bytes, StandardCharsets.UTF_8);
-                    System.out.println("Received from next node: " + tmp + "\n");
+                    System.out.println("Received message from next node \n");
 
                     break;
                 case "readFromNext":
@@ -212,14 +210,13 @@ public class OnionNode {
                     bytes = new byte[byteLength];
                     readFromPrev.readFully(bytes);
 
-                    tmp = new String(bytes, StandardCharsets.UTF_8);
-                    System.out.println("Received from prev node: " + tmp + "\n");
+                    System.out.println("Received message from previous node \n");
 
                     break;
                 case "readFromPrev":
                     lastAction = "writeToNext";
 
-                    encrypted = CryptoUtil.encryptAES(bytes, bytes.length, getSecretKey());
+                    encrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
                     System.out.println("Message to next node encrypted!");
                     writeToPrev.writeInt(encrypted.length);
                     writeToPrev.write(encrypted);
