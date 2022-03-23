@@ -413,11 +413,11 @@ public class OnionClient {
         //prints the "my secret key is now set" confirmation message
         responseArr = new byte[reader.readInt()];
         reader.readFully(responseArr);
-        decrypted = CryptoUtil.decryptAES(responseArr, responseArr.length,secretKeys[0]);
+//        decrypted = CryptoUtil.decryptAES(responseArr, responseArr.length,secretKeys[0]);
         System.out.println(new String(decrypted, StandardCharsets.UTF_8));
-        byte[] doubleDec = CryptoUtil.decryptAES(decrypted,decrypted.length,secretKeys[1]);
-        dec = new String(doubleDec, StandardCharsets.UTF_8);
-        System.out.println(dec);
+//        byte[] doubleDec = CryptoUtil.decryptAES(decrypted,decrypted.length,secretKeys[1]);
+//        dec = new String(doubleDec, StandardCharsets.UTF_8);
+//        System.out.println(dec);
 
         //encrypts and sends the ip and port of the next node
         nextIP = inetAddresses[2];
@@ -431,6 +431,26 @@ public class OnionClient {
 
         writer.writeInt(doubleEncMsgArr.length);
         writer.write(doubleEncMsgArr);
+
+        byte[] node3encPk = new byte[reader.readInt()];
+        reader.readFully(node3encPk);
+        byte[] decrypted1 = CryptoUtil.decryptAES(node3encPk, node3encPk.length, secretKeys[0]);
+        byte[] decrypted2 = CryptoUtil.decryptAES(decrypted1, decrypted1.length, secretKeys[1]);
+
+        publicKeySpec = new X509EncodedKeySpec(decrypted2);
+        publicKeys[2] = KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
+        System.out.println("Public key revieved from node 3");
+        encryptedSc = CryptoUtil.encryptRSA(secretKeys[2].getEncoded(), secretKeys[2].getEncoded().length,
+                publicKeys[2]);
+        doubleEncSc = CryptoUtil.encryptAES(encryptedSc, encryptedSc.length, secretKeys[1]);
+        byte[] tripleEncSc = CryptoUtil.encryptAES(doubleEncSc, doubleEncSc.length, secretKeys[0]);
+
+        writer.writeInt(tripleEncSc.length);
+        writer.write(tripleEncSc);
+        System.out.println("Symmetric key sent");
+
+
+
 
         System.out.println("Finished setup with node 2");
 

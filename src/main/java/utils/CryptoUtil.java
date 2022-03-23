@@ -22,8 +22,7 @@ public class CryptoUtil {
         cipher.init(Cipher.DECRYPT_MODE, key);
 
 //        byte[] base64decodedTokenArr = Base64.getDecoder().decode(encryptedData);
-        byte[] enc = cipher.doFinal(encryptedData, 0, length);
-        return Base64.getDecoder().decode(enc);
+         return cipher.doFinal(encryptedData, 0, length);
 
     }
 
@@ -40,8 +39,7 @@ public class CryptoUtil {
     public static byte[] encryptAES(byte[] data, int length, SecretKey key) throws Exception {
         Cipher cipher = Cipher.getInstance("AES");
         cipher.init(Cipher.ENCRYPT_MODE, key);
-        byte[] b64 = Base64.getEncoder().encode(data);
-        return cipher.doFinal(b64, 0, b64.length);
+        return cipher.doFinal(data, 0, length);
     }
 
     /**
