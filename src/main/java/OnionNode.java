@@ -124,6 +124,7 @@ public class OnionNode {
                 System.out.println("New message received from client: " + new String(sk.getEncoded(), StandardCharsets.UTF_8));
 
                 String response = "My secret key is now set!";
+                System.out.println(response);
                 byte[] responseBytes = response.getBytes();
                 byte[] encrypted = CryptoUtil.encryptAES(responseBytes, responseBytes.length, getSecretKey());
 
@@ -131,6 +132,7 @@ public class OnionNode {
                 dos.write(encrypted);
                 dos.flush();
             } else {
+                System.out.println("Setting up connection to next node");
                 byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
 
                 String st = new String(decrypted, StandardCharsets.UTF_8);
@@ -218,9 +220,11 @@ public class OnionNode {
                     break;
                 case "readFromPrev":
                     lastAction = "writeToNext";
+                    System.out.println(new String(bytes, StandardCharsets.UTF_8));
 
                     decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
                     System.out.println("Message to next node decrypted!");
+                    System.out.println(new String(decrypted, StandardCharsets.UTF_8));
                     writeToNext.writeInt(decrypted.length);
                     writeToNext.write(decrypted);
                     System.out.println("Message to next node sent!");
