@@ -311,14 +311,164 @@ public class OnionClient {
         return msgBytes;
     }
 
+
+    private void setupConnection() throws Exception {
+        KeyGenerator kg = KeyGenerator.getInstance("AES");
+        kg.init(256);
+        secretKeys[0] = kg.generateKey();
+        secretKeys[1] = kg.generateKey();
+        secretKeys[2] = kg.generateKey();
+        try (BufferedReader br = new BufferedReader(new FileReader("src/main/java/ipnports.txt"))) {
+            String line = br.readLine();
+            int i = 0;
+            while (line != null) {
+                String[] split = line.split(":");
+                inetAddresses[i] = split[0];
+                portsToVisit[i] = Integer.parseInt(split[1]);
+                line = br.readLine();
+                System.out.println(inetAddresses[i] + ":" + portsToVisit[i]);
+                i++;
+            }
+
+            inetAddresses[i] = endIP;
+            portsToVisit[i] = endPort;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+
+
+
+
+        this.socket = new Socket(inetAddresses[0], portsToVisit[0]);
+        reader = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+        writer = new DataOutputStream(socket.getOutputStream());
+
+        //asks next node in circuit for its public key
+        String pkString = "GivePK!!!";
+        byte[] pkByteArr = pkString.getBytes();
+        writer.writeInt(pkByteArr.length);
+        writer.write(pkByteArr);
+
+        //recieves and saves public key number 1
+        int byteLength = reader.readInt();
+        byte[] responseArr = new byte[byteLength];
+        reader.readFully(responseArr);
+        X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(responseArr);
+        publicKeys[0] = KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
+        System.out.println("Public key recieved from node 1");
+
+        //sends symmetric key for node 1
+        byte[] encryptedSc = CryptoUtil.encryptRSA(secretKeys[0].getEncoded(), secretKeys[0].getEncoded().length,
+                publicKeys[0]);
+        writer.writeInt(encryptedSc.length);
+        writer.write(encryptedSc);
+
+        //prints the "my secret key is now set" confirmation message
+        responseArr = new byte[reader.readInt()];
+        reader.readFully(responseArr);
+        byte[] decrypted = CryptoUtil.decryptAES(responseArr, responseArr.length,secretKeys[0]);
+        String dec = new String(decrypted, StandardCharsets.UTF_8);
+        System.out.println(dec);
+
+        //encrypts and sends the ip and port of the next node
+        String nextIP = inetAddresses[1];
+        int nextPort = portsToVisit[1];
+        String nextAddress = nextIP +":" + nextPort;
+        String message = nextAddress+"/"+pkString;
+
+        byte[] msgArr = message.getBytes();
+        byte[] encMsgArr = CryptoUtil.encryptAES(msgArr, msgArr.length, secretKeys[0]);
+
+        writer.writeInt(encMsgArr.length);
+        writer.write(encMsgArr);
+
+        System.out.println("Finished setup with node 1");
+
+        //asks next node in circuit for its public key
+        encMsgArr = CryptoUtil.encryptAES(pkByteArr, pkByteArr.length, secretKeys[0]);
+        writer.writeInt(encMsgArr.length);
+        writer.write(encMsgArr);
+
+
+        byteLength = reader.readInt();
+        byte[] encResponseArr = new byte[byteLength];
+        reader.readFully(encResponseArr);
+        byte[] decResponseArr = CryptoUtil.decryptAES(encResponseArr,encResponseArr.length,secretKeys[0]);
+
+        publicKeySpec = new X509EncodedKeySpec(decResponseArr);
+        publicKeys[1] = KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
+        System.out.println("Public key recieved from node 2");
+
+        //encrypts and sends symmetric key for node 2
+        encryptedSc = CryptoUtil.encryptRSA(secretKeys[1].getEncoded(), secretKeys[1].getEncoded().length,
+                publicKeys[1]);
+        byte[] doubleEncSc = CryptoUtil.encryptAES(encryptedSc, encryptedSc.length, secretKeys[0]);
+        writer.writeInt(doubleEncSc.length);
+        writer.write(doubleEncSc);
+        System.out.println("Symmetric key sent");
+
+        //prints the "my secret key is now set" confirmation message
+        responseArr = new byte[reader.readInt()];
+        reader.readFully(responseArr);
+        decrypted = CryptoUtil.decryptAES(responseArr, responseArr.length,secretKeys[0]);
+        System.out.println(new String(decrypted, StandardCharsets.UTF_8));
+        byte[] doubleDec = CryptoUtil.decryptAES(decrypted,decrypted.length,secretKeys[1]);
+        dec = new String(doubleDec, StandardCharsets.UTF_8);
+        System.out.println(dec);
+
+        //encrypts and sends the ip and port of the next node
+        nextIP = inetAddresses[2];
+        nextPort = portsToVisit[2];
+        nextAddress = nextIP +":" + nextPort;
+        message = nextAddress+"/"+pkString;
+
+        msgArr = message.getBytes();
+        encMsgArr = CryptoUtil.encryptAES(msgArr, msgArr.length, secretKeys[1]);
+        byte[] doubleEncMsgArr = CryptoUtil.encryptAES(encMsgArr, encMsgArr.length, secretKeys[0]);
+
+        writer.writeInt(doubleEncMsgArr.length);
+        writer.write(doubleEncMsgArr);
+
+        System.out.println("Finished setup with node 2");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
     public static void main(String[] args) throws Exception {
         int tempNodes = 3;
         OnionClient onionClient = new OnionClient(tempNodes, "localhost", 8119);
-        onionClient.setDest();
-//        onionClient.connectSetup();
-        //TODO metode for noekler
-        //TODO metode for aa opprette forbindelse
-        onionClient.run();
+        onionClient.setupConnection();
+//        onionClient.setDest();
+////        onionClient.connectSetup();
+//        //TODO metode for noekler
+//        //TODO metode for aa opprette forbindelse
+//        onionClient.run();
 //        Socket socket = new Socket("10.22.51.37", 8118);
 //        DataOutputStream writer = new DataOutputStream(socket.getOutputStream());
 //        DataInputStream reader = new DataInputStream(socket.getInputStream());
