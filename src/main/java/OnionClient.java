@@ -136,17 +136,22 @@ public class OnionClient {
                 byte[] confirmation = new byte[reader.readInt()];
                 reader.readFully(confirmation);
                 confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[0]);
-                System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i+1));
+                System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i));
             } else {
                 publicKeys[i] = connectSetup(i, msg);
+                System.out.println("public key received from node " + i);
                 byte[] secretKey = new byte [245];
                 secretKey = encrypt(i,secretKey);
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
 
                 byte[] confirmation = new byte[reader.readInt()];
+                System.out.println("confirmation received from node " + i);
                 reader.readFully(confirmation);
-                confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[i]);
+                for (int j = 0; j < i; j++) {
+                    System.out.println(j);
+                    confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[j]);
+                }
                 System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i+1));
             }
         }
