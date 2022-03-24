@@ -138,51 +138,18 @@ public class OnionClient {
             if (i == 0){
                 publicKeys[0] = askForKey(msg);
                 byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[0].getEncoded(), secretKeys[0].getEncoded().length, publicKeys[0]);
-//                List<byte[]> byteList = divideArray(secretKey, 64);
-//                writer.writeInt(byteList.get(0).length);
-//                writer.write(byteList.get(0));
-//                writer.writeInt(byteList.size()-1);
-//                for (int j = 1; j < byteList.size()-1; j++) {
-//                    writer.writeInt(byteList.get(i).length);
-//                    writer.write(byteList.get(i));
-//                }
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
                 byte[] confirmation = new byte[reader.readInt()];
                 reader.readFully(confirmation);
                 confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[0]);
                 System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i));
-            } else if(i>1){
-                publicKeys[i] = connectSetup2(i, msg);
-                System.out.println("public key received from node " + i);
-                byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[i].getEncoded(), secretKeys[i].getEncoded().length, publicKeys[i]);
-                secretKey = encrypt(i,secretKey);
-                writer.writeInt(secretKey.length);
-                writer.write(secretKey);
-                System.out.println("secret key sent");
-                byte[] confirmation = new byte[reader.readInt()];
-                System.out.println("confirmation received from node " + i);
-                reader.readFully(confirmation);
-                for (int j = 0; j <= i; j++) {
-                    System.out.println("node " + j + " decrypted");
-                    confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[j]);
-                }
-                System.out.println((new String(confirmation, StandardCharsets.UTF_8)) + " -node " + (i));
-
             }
             else {
                 publicKeys[i] = connectSetup(i, msg);
                 System.out.println("public key received from node " + i);
                 byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[i].getEncoded(), secretKeys[i].getEncoded().length, publicKeys[i]);
                 secretKey = encrypt(i,secretKey);
-//                List<byte[]> byteList = divideArray(secretKey, 64);
-//                writer.writeInt(byteList.get(0).length);
-//                writer.write(byteList.get(0));
-//                writer.writeInt(byteList.size()-1);
-//                for (int j = 1; j < byteList.size()-1; j++) {
-//                    writer.writeInt(byteList.get(i).length);
-//                    writer.write(byteList.get(i));
-//                }
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
                 System.out.println("secret key sent");
@@ -240,21 +207,9 @@ public class OnionClient {
                         + ":".getBytes().length
                         + "/".getBytes().length
                         + msg.getBytes().length];
-            } else {
-                msg = "next";
-                msgBytes = msg.getBytes();
-                buffer = ByteBuffer.allocate(msgBytes.length);
-
-                System.out.println(inetAddresses[j + 1] + ":" + portsToVisit[j + 1]);
-
-                buffer.put(msgBytes);
-
-                cryptData = new byte[msg.getBytes().length + cryptData.length];
+                buffer.flip();
+                buffer.get(cryptData);
             }
-            buffer.flip();
-
-            buffer.get(cryptData);
-
             cryptData = CryptoUtil.encryptAES(cryptData, cryptData.length, secretKeys[j]);
         }
 
@@ -275,57 +230,6 @@ public class OnionClient {
         return KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
     }
 
-    private PublicKey connectSetup2(int i, String msg) throws Exception{
-
-        String nextIP = inetAddresses[2];
-        int nextPort = portsToVisit[2];
-        String nextAddress = nextIP +":" + nextPort;
-        String message = nextAddress+"/"+msg;
-
-        byte[] msgArr = message.getBytes();
-//        List<byte[]> arr = new ArrayList<>();
-//        arr.add(msgArr);
-//        arr.add(cryptData);
-//
-//        ByteArrayOutputStream os = new ByteArrayOutputStream();
-//        for (byte[] b : arr) {
-//            os.write(b, 0, b.length);
-//        }
-//        msgArr = os.toByteArray();
-        byte[] encMsgArr = CryptoUtil.encryptAES(msgArr, msgArr.length, secretKeys[1]);
-
-        byte[] doubleEncMsgArr = CryptoUtil.encryptAES(encMsgArr, encMsgArr.length, secretKeys[0]);
-
-
-        writer.writeInt(doubleEncMsgArr.length);
-        writer.write(doubleEncMsgArr);
-
-        int l = reader.readInt();
-        byte[] decrypted = new byte[l];
-        reader.readFully(decrypted);
-
-        for (int j = 0; j < i; j++) {
-            System.out.println((Arrays.toString(decrypted)) + "\n");
-            decrypted = CryptoUtil.decryptAES(decrypted, l, secretKeys[j]);
-            System.out.println("decrypted with node "+j+"'s secret key");
-        }
-
-        X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decrypted);
-        return KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
-    }
-
-    public static List<byte[]> divideArray(byte[] source, int chunksize) {
-
-        List<byte[]> result = new ArrayList<byte[]>();
-        int start = 0;
-        while (start < source.length) {
-            int end = Math.min(source.length, start + chunksize);
-            result.add(Arrays.copyOfRange(source, start, end));
-            start += chunksize;
-        }
-
-        return result;
-    }
 
     public byte[] encrypt(int nowNode, byte[] msg) throws Exception {
         byte[] byteMessage = Arrays.copyOf(msg, msg.length);
