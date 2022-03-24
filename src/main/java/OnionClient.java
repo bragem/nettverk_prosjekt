@@ -234,7 +234,6 @@ public class OnionClient {
                 buffer.put(String.valueOf(portsToVisit[j + 1]).getBytes());
                 buffer.put((byte) '/');
                 buffer.put(msgBytes);
-//                buffer.put(cryptData);
 
                 cryptData = new byte[(inetAddresses[j + 1]).getBytes().length
                         + String.valueOf(portsToVisit[j + 1]).getBytes().length
@@ -249,7 +248,6 @@ public class OnionClient {
                 System.out.println(inetAddresses[j + 1] + ":" + portsToVisit[j + 1]);
 
                 buffer.put(msgBytes);
-//                buffer.put(cryptData);
 
                 cryptData = new byte[msg.getBytes().length + cryptData.length];
             }
@@ -259,16 +257,6 @@ public class OnionClient {
 
             cryptData = CryptoUtil.encryptAES(cryptData, cryptData.length, secretKeys[j]);
         }
-
-//        List<byte[]> byteList = divideArray(cryptData, 64);
-//        writer.writeInt(byteList.get(0).length);
-//        writer.write(byteList.get(0));
-//        writer.writeInt(byteList.size()-1);
-//        for (int j = 1; j < byteList.size()-1; j++) {
-//            writer.writeInt(byteList.get(i).length);
-//            writer.write(byteList.get(i));
-//        }
-
 
         writer.writeInt(cryptData.length);
         writer.write(cryptData);
@@ -286,11 +274,8 @@ public class OnionClient {
         X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decrypted);
         return KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
     }
+
     private PublicKey connectSetup2(int i, String msg) throws Exception{
-        //encrypt secret keys
-        byte[] secretKeyByte = secretKeys[i-1].getEncoded();
-        byte[] cryptData = CryptoUtil.encryptRSA(secretKeyByte, secretKeyByte.length, publicKeys[i-1]);
-        byte[] msgBytes = msg.getBytes();
 
         String nextIP = inetAddresses[2];
         int nextPort = portsToVisit[2];
@@ -311,14 +296,6 @@ public class OnionClient {
 
         byte[] doubleEncMsgArr = CryptoUtil.encryptAES(encMsgArr, encMsgArr.length, secretKeys[0]);
 
-//        List<byte[]> byteList = divideArray(cryptData, 64);
-//        writer.writeInt(byteList.get(0).length);
-//        writer.write(byteList.get(0));
-//        writer.writeInt(byteList.size()-1);
-//        for (int j = 1; j < byteList.size()-1; j++) {
-//            writer.writeInt(byteList.get(i).length);
-//            writer.write(byteList.get(i));
-//        }
 
         writer.writeInt(doubleEncMsgArr.length);
         writer.write(doubleEncMsgArr);
@@ -327,8 +304,8 @@ public class OnionClient {
         byte[] decrypted = new byte[l];
         reader.readFully(decrypted);
 
-
-        for (int j = 0; j <= i; j++) {
+        for (int j = 0; j < i; j++) {
+            System.out.println((Arrays.toString(decrypted)) + "\n");
             decrypted = CryptoUtil.decryptAES(decrypted, l, secretKeys[j]);
             System.out.println("decrypted with node "+j+"'s secret key");
         }
