@@ -40,7 +40,7 @@
                 <source>11</source>
                 <javadocExecutable>${java.home}/bin/javadoc</javadocExecutable>
                 <additionalJOption>-Xdoclint:none</additionalJOption>
-                <reportOutputDirectory>public/javadoc</reportOutputDirectory>
+                <reportOutputDirectory>docs</reportOutputDirectory>
                 <destDir>/</destDir>
             </configuration>
         </plugin>
