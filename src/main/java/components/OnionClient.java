@@ -11,14 +11,19 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.Arrays;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import utils.CryptoUtil;
 
 /**
  * Client Class to choose amount of nodes to connect to and talk with server
  */
 public class OnionClient {
+
+    private static Logger logger = LoggerFactory.getLogger(OnionClient.class);
 
     DataInputStream reader;
     DataOutputStream writer;
@@ -61,25 +66,33 @@ public class OnionClient {
      */
     public void setNodeDestinations() throws IOException {
         try (BufferedReader br = new BufferedReader(new FileReader("src/main/java/ipnports.txt"))) {
-            String line = br.readLine();
+            String line;
             int i = 0;
-            while (line != null) {
+            ArrayList<String> tmp = new ArrayList<>();
+
+            while ((line = br.readLine()) != null) {
                 String[] split = line.split(":");
+
                 inetAddresses[i] = split[0];
                 portsToVisit[i] = Integer.parseInt(split[1]);
-                line = br.readLine();
-                System.out.println(inetAddresses[i] + ":" + portsToVisit[i]);
+
+                tmp.add(String.format("%s:%s", inetAddresses[i], portsToVisit[i]));
                 i++;
             }
 
+            logger.info(String.format("IP addresses and ports to visit %s", tmp));
+
             inetAddresses[i] = endIP;
             portsToVisit[i] = endPort;
+
+            this.socket = new Socket(inetAddresses[0], portsToVisit[0]);
+            reader = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+            writer = new DataOutputStream(socket.getOutputStream());
+
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error(e.getMessage());
         }
-        this.socket = new Socket(inetAddresses[0], portsToVisit[0]);
-        reader = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-        writer = new DataOutputStream(socket.getOutputStream());
+
     }
 
     /**
@@ -100,9 +113,8 @@ public class OnionClient {
      * @throws Exception alot of places, just dont fuck it up
      */
     private void run() throws Exception {
-        System.out.println("Receiving public key from node...");
         setup();
-        System.out.println("Setup complete");
+        logger.info("Setup complete");
 
         System.out.println("\n\nPlease write your message, enter when finished.");
         System.out.println("Enter '0' without the quotes to exit the program");
@@ -114,31 +126,33 @@ public class OnionClient {
 
             //Ending connection that is established
             if (msg == null || msg.trim().equalsIgnoreCase("0")){
-                System.out.println("Shutting down...");
+                logger.warn("Shutting down...");
 
-                System.out.println("Shutdown complete.");
+                logger.info("Shutdown complete");
                 break;
             }
 
             //Sending messages and encrypting them
             byte[] byteMessage = msg.getBytes(StandardCharsets.UTF_8);
 
-            System.out.println("Message being sent");
-            System.out.println("Message being encrypted");
+            logger.info("Message being encrypted");
+            logger.info("Message being sent");
 
             byte[] encryptMessage = encryptMessage(byteMessage);
             writer.writeInt(encryptMessage.length);
             writer.write(encryptMessage);
-            System.out.println("Message sent: " + msg + "\n");
+            logger.info(String.format("Message sent: %s", msg));
 
             //Receiving messages and decrypting them
-            System.out.println("Message from server: ");
+
             byte[] bytesReceive = new byte[reader.readInt()];
             reader.readFully(bytesReceive);
             for (int j = 0; j < nrOfNodes; j++) {
                 bytesReceive = CryptoUtil.decryptAES(bytesReceive, bytesReceive.length, secretKeys[j]);
             }
-            System.out.println(new String(bytesReceive, StandardCharsets.UTF_8));
+            String fromServer = new String(bytesReceive, StandardCharsets.UTF_8);
+
+            logger.info("Message from server: %s", fromServer);
 
         }
         socket.close();
@@ -149,6 +163,7 @@ public class OnionClient {
      * @throws Exception thrown when {@link DataInputStream},{@link DataOutputStream} fails
      */
     public void setup() throws Exception {
+        logger.info("Starting setup...");
         String msg = "GivePK!!!";
         for (int i = 0; i < nrOfNodes; i++) {
             //Public key is first received from using the method askForKey for the first node, then
@@ -164,27 +179,34 @@ public class OnionClient {
                 byte[] confirmation = new byte[reader.readInt()];
                 reader.readFully(confirmation);
                 confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[0]);
-                System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i+1));
+                logger.info(new String(confirmation, StandardCharsets.UTF_8));
             }
             else {
                 //public key for first node is received
                 publicKeys[i] = getPublicKey(i, msg);
-                System.out.println("public key received from node " + i);
+                //logger.info(String.format("public key received from node %s", i));
+
                 byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[i].getEncoded(), secretKeys[i].getEncoded().length, publicKeys[i]);
                 //secret key encrypted in prev node secret keys and is sent
                 secretKey = encryptSecretKey(i,secretKey);
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
-                System.out.println("secret key sent");
+
+                //logger.info(String.format("secret key sent"));
+
                 //confirmation is received from nodes and decrypted
                 byte[] confirmation = new byte[reader.readInt()];
-                System.out.println("confirmation received from node " + i);
+
+                //logger.info(String.format("confirmation received from node %s", i));
+
                 reader.readFully(confirmation);
                 for (int j = 0; j <= i; j++) {
-                    System.out.println("node " + (j+1) + " decrypted");
+                    //logger.info(String.format("node %s decrypted", (j+1)));
+
                     confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[j]);
                 }
-                System.out.println((new String(confirmation, StandardCharsets.UTF_8)) + " -node " + (i+1));
+
+                logger.info(new String(confirmation, StandardCharsets.UTF_8));
             }
         }
     }
@@ -233,7 +255,7 @@ public class OnionClient {
                         + "/".getBytes().length
                         + msgBytes.length);
 
-                System.out.println(inetAddresses[j + 1] + ":" + portsToVisit[j + 1]);
+                //logger.info(String.format("%s:%s", inetAddresses[j + 1], portsToVisit[j + 1]));
 
                 buffer.put((inetAddresses[j + 1]).getBytes());
                 buffer.put((byte) ':');
@@ -261,7 +283,6 @@ public class OnionClient {
 
 
         for (int j = 0; j < i; j++) {
-            System.out.println(j);
             decrypted = CryptoUtil.decryptAES(decrypted, l, secretKeys[j]);
         }
 

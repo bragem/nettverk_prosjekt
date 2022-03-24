@@ -10,3 +10,6 @@
 - Brukermanual
 - Hvordan kjøre tester/noe om tester i det hele tatt
 - Eventuell lenke til api dokumentasjon 
+
+Link til docs: https://bragem.github.io/nettverk_prosjekt/
+For å generere ny javadoc kjør mvn javadoc:javdoc
