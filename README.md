@@ -12,3 +12,4 @@
 - Eventuell lenke til api dokumentasjon 
 
 Link til docs: https://bragem.github.io/nettverk_prosjekt/
+For å generere ny javadoc kjør mvn javadoc:javdoc
