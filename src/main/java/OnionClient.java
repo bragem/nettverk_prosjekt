@@ -133,9 +133,7 @@ public class OnionClient {
             System.out.println("Message from server: ");
             byte[] bytesReceive = new byte[reader.readInt()];
             reader.readFully(bytesReceive);
-            System.out.println(bytesReceive.length);
             for (int j = 0; j < nrOfNodes; j++) {
-                System.out.println(j);
                 bytesReceive = CryptoUtil.decryptAES(bytesReceive, bytesReceive.length, secretKeys[j]);
             }
             System.out.println(new String(bytesReceive, StandardCharsets.UTF_8));
@@ -313,12 +311,19 @@ public class OnionClient {
 
         for (int i = nrOfNodes-1; i >= 0; i--) {
             ByteBuffer byteBuffer;
-            //ip and endport of server is encrypted in the loop
+            //ip and end port of server is encrypted in the loop
             if (i == nrOfNodes-1) {
                 byteBuffer = ByteBuffer.allocate(msgBytes.length
-                        + inetAddresses[inetAddresses.length-1].getBytes().length
+                        + endIP.getBytes().length
+                        + String.valueOf(endPort).getBytes().length
+                        + ":".getBytes().length
+                        + "/".getBytes().length
                         + String.valueOf(portsToVisit[portsToVisit.length-1]).getBytes().length
                 );
+                byteBuffer.put(endIP.getBytes());
+                byteBuffer.put(":".getBytes());
+                byteBuffer.put(String.valueOf(endPort).getBytes());
+                byteBuffer.put("/".getBytes());
                 byteBuffer.put(msgBytes);
                 byteBuffer.flip();
                 msgBytes = new byte[byteBuffer.limit()];
