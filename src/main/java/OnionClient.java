@@ -13,7 +13,9 @@ import java.util.Arrays;
 
 import utils.CryptoUtil;
 
-//TODO JAVADOC OG kommentarer Overalt
+/**
+ * Client Class to choose amount of nodes to connect to and talk with server
+ */
 public class OnionClient {
 
     DataInputStream reader;
@@ -32,10 +34,10 @@ public class OnionClient {
     /**
      * Constructor of {@link OnionNode} which takes in ip and port of the server it wants to connect to
      * Creates all symmetric keys upon creation
-     * @param nrOfNodes
-     * @param ip
-     * @param endPort
-     * @throws NoSuchAlgorithmException
+     * @param nrOfNodes number of nodes the client desires
+     * @param ip ip of the server
+     * @param endPort port of the server
+     * @throws NoSuchAlgorithmException When {@link KeyGenerator} throws NoSuchAlgorithmException
      */
     public OnionClient(int nrOfNodes, String ip, int endPort) throws NoSuchAlgorithmException {
         this.socket = new Socket();
@@ -116,7 +118,7 @@ public class OnionClient {
                 break;
             }
 
-            //Sending messages packets
+            //Sending messages and encrypting them
             byte[] byteMessage = msg.getBytes(StandardCharsets.UTF_8);
 
             System.out.println("Message being sent");
@@ -127,7 +129,7 @@ public class OnionClient {
             writer.write(encryptMessage);
             System.out.println("Message sent: " + msg + "\n");
 
-            //Receiving messages branch setup
+            //Receiving messages and decrypting them
             System.out.println("Message from server: ");
             byte[] bytesReceive = new byte[reader.readInt()];
             reader.readFully(bytesReceive);
@@ -145,36 +147,52 @@ public class OnionClient {
     public void getPublicKey() throws Exception {
         String msg = "GivePK!!!";
         for (int i = 0; i < nrOfNodes; i++) {
+            //Public key is first received from using the method askForKey for the first node, then
+            //we use connectSetup method to get public keys for the rest of the nodes.
             if (i == 0){
+                //public key for first node is received
                 publicKeys[0] = askForKey(msg);
                 byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[0].getEncoded(), secretKeys[0].getEncoded().length, publicKeys[0]);
+                //secret key is encrypted in the public key received and is sent
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
+                //confirmation is received from the first node
                 byte[] confirmation = new byte[reader.readInt()];
                 reader.readFully(confirmation);
                 confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[0]);
-                System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i));
+                System.out.println(new String(confirmation, StandardCharsets.UTF_8) + " -node " + (i+1));
             }
             else {
+                //public key for first node is received
                 publicKeys[i] = connectSetup(i, msg);
                 System.out.println("public key received from node " + i);
                 byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[i].getEncoded(), secretKeys[i].getEncoded().length, publicKeys[i]);
+                //secret key encrypted in prev node secret keys and is sent
                 secretKey = encrypt(i,secretKey);
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
                 System.out.println("secret key sent");
+                //confirmation is received from nodes and decrypted
                 byte[] confirmation = new byte[reader.readInt()];
                 System.out.println("confirmation received from node " + i);
                 reader.readFully(confirmation);
                 for (int j = 0; j <= i; j++) {
-                    System.out.println("node " + j + " decrypted");
+                    System.out.println("node " + (j+1) + " decrypted");
                     confirmation = CryptoUtil.decryptAES(confirmation, confirmation.length, secretKeys[j]);
                 }
-                System.out.println((new String(confirmation, StandardCharsets.UTF_8)) + " -node " + (i));
+                System.out.println((new String(confirmation, StandardCharsets.UTF_8)) + " -node " + (i+1));
             }
         }
     }
 
+    /**
+     * method to communicate with the first node and ask for key
+     * @param msg message for the node
+     * @return returns the public key of the first node
+     * @throws IOException thrown when {@link DataInputStream},{@link DataOutputStream} fails
+     * @throws NoSuchAlgorithmException thrown when {@link KeyFactory} has failed
+     * @throws InvalidKeySpecException thrown when  {@link KeyFactory} generation of public key fails
+     */
     public PublicKey askForKey(String msg) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
 
         byte[] askForKeyBytes = msg.getBytes();
@@ -189,6 +207,13 @@ public class OnionClient {
         return KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
     }
 
+    /**
+     * This method encrypts the message to the desired node in the secret keys obtained from nodes before it
+     * @param i node we are asking the public key for now
+     * @param msg message to the node we want key from
+     * @return public key from the node
+     * @throws Exception thrown when {@link CryptoUtil} decrypting or encrypting
+     */
     private PublicKey connectSetup(int i, String msg) throws Exception{
         //encrypt secret keys
         byte[] secretKeyByte = secretKeys[i-1].getEncoded();
@@ -240,14 +265,20 @@ public class OnionClient {
         return KeyFactory.getInstance("RSA").generatePublic(publicKeySpec);
     }
 
-
+    /**
+     * This method encrypts the secret key we are sending the desired node with its other nodes secret key
+     * @param nowNode node we want to give the secret key to
+     * @param msg message (secret key) for the node
+     * @return byte array of the complete encrypted message to reach the desired node
+     * @throws Exception thrown when  {@link CryptoUtil} encrypting
+     */
     public byte[] encrypt(int nowNode, byte[] msg) throws Exception {
         byte[] byteMessage = Arrays.copyOf(msg, msg.length);
         // encryption
         for (int i = nowNode; i >= 0; i--) {
             ByteBuffer buffer;
             if((i != nowNode)){
-                //TODO clean up and update length plus general upgrade
+                //placing the message inside a bytebuffer, so it is clear how the message is structured
                 buffer = ByteBuffer.allocate(byteMessage.length);
                 buffer.put(byteMessage);
                 buffer.flip();
@@ -258,7 +289,7 @@ public class OnionClient {
                 byteMessage = CryptoUtil.encryptAES(byteMessage, byteMessage.length, secretKeys[i]);
             }
             else {
-//                raw msg for final destination
+                //raw msg for final destination
                 buffer = ByteBuffer.allocate(byteMessage.length);
 
                 buffer.put(byteMessage);
@@ -266,10 +297,8 @@ public class OnionClient {
 
                 byteMessage = new byte[buffer.limit()];
                 buffer.get(byteMessage);
-
             }
         }
-
         return byteMessage;
     }
 
@@ -284,17 +313,17 @@ public class OnionClient {
 
         for (int i = nrOfNodes-1; i >= 0; i--) {
             ByteBuffer byteBuffer;
+            //ip and endport of server is encrypted in the loop
             if (i == nrOfNodes-1) {
                 byteBuffer = ByteBuffer.allocate(msgBytes.length
-                                + inetAddresses[inetAddresses.length-1].getBytes().length
-                                + String.valueOf(portsToVisit[portsToVisit.length-1]).getBytes().length
-                        );
+                        + inetAddresses[inetAddresses.length-1].getBytes().length
+                        + String.valueOf(portsToVisit[portsToVisit.length-1]).getBytes().length
+                );
                 byteBuffer.put(msgBytes);
                 byteBuffer.flip();
                 byteBuffer.get(msgBytes);
                 msgBytes = new byte[byteBuffer.limit()];
             }
-
             msgBytes = CryptoUtil.encryptAES(msgBytes, msgBytes.length, secretKeys[i]);
         }
         return msgBytes;
@@ -304,8 +333,6 @@ public class OnionClient {
         int tempNodes = 3;
         OnionClient onionClient = new OnionClient(tempNodes, "localhost", 8119);
         onionClient.setDest();
-        //TODO metode for noekler
-        //TODO metode for aa opprette forbindelse
         onionClient.run();
     }
 }
