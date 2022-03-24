@@ -132,6 +132,7 @@ public class OnionClient {
                 writer.writeInt(shutdownBytes.length);
                 writer.write(shutdownBytes);
                 logger.info("Shutdown complete");
+                read.close();
                 break;
             }
 
@@ -158,6 +159,9 @@ public class OnionClient {
             logger.info(String.format("Message from server: %s", fromServer));
 
         }
+        reader.close();
+        writer.close();
+
         socket.close();
     }
 
@@ -344,16 +348,16 @@ public class OnionClient {
             //ip and end port of server is encrypted in the loop
             if (i == nrOfNodes-1) {
                 byteBuffer = ByteBuffer.allocate(msgBytes.length
-                        + endIP.getBytes().length
-                        + String.valueOf(endPort).getBytes().length
-                        + ":".getBytes().length
-                        + "/".getBytes().length
-                        + String.valueOf(portsToVisit[portsToVisit.length-1]).getBytes().length
+//                        + endIP.getBytes().length
+//                        + String.valueOf(endPort).getBytes().length
+//                        + ":".getBytes().length
+//                        + "/".getBytes().length
+//                        + String.valueOf(portsToVisit[portsToVisit.length-1]).getBytes().length
                 );
-                byteBuffer.put(endIP.getBytes());
-                byteBuffer.put(":".getBytes());
-                byteBuffer.put(String.valueOf(endPort).getBytes());
-                byteBuffer.put("/".getBytes());
+//                byteBuffer.put(endIP.getBytes());
+//                byteBuffer.put(":".getBytes());
+//                byteBuffer.put(String.valueOf(endPort).getBytes());
+//                byteBuffer.put("/".getBytes());
                 byteBuffer.put(msgBytes);
                 byteBuffer.flip();
                 msgBytes = new byte[byteBuffer.limit()];
@@ -382,21 +386,15 @@ public class OnionClient {
                 byteBuffer.flip();
                 msgBytes = new byte[byteBuffer.limit()];
                 byteBuffer.get(msgBytes);
-                msgBytes = CryptoUtil.encryptAES(msgBytes, msgBytes.length, secretKeys[i]);
+
             }
-            byteBuffer = ByteBuffer.allocate(msgBytes.length + ":".getBytes().length);
-            byteBuffer.put(msgBytes);
-            byteBuffer.put(":".getBytes());
-            byteBuffer.flip();
-            msgBytes = new byte[byteBuffer.limit()];
-            byteBuffer.get(msgBytes);
             msgBytes = CryptoUtil.encryptAES(msgBytes, msgBytes.length, secretKeys[i]);
         }
         return msgBytes;
     }
 
     public static void main(String[] args) throws Exception {
-        int tempNodes = 3;
+        int tempNodes = 4;
         OnionClient onionClient = new OnionClient(tempNodes, "localhost", 8119);
         onionClient.setNodeDestinations();
         onionClient.run();

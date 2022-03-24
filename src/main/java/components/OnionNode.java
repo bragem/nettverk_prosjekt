@@ -183,7 +183,13 @@ public class OnionNode {
                 case "writeToNext":
                     //trenger sjekk om det står quit eller teardown i meldinga
                     lastAction = "readFromNext";
-
+                    if(socket.isClosed()){//TODO close connection
+                        readFromPrev.close();
+                        writeToPrev.close();
+                        readFromNext.close();
+                        writeToNext.close();
+                        System.exit(0);
+                    }
                     byteLength = readFromNext.readInt();
                     bytes = new byte[byteLength];
                     readFromNext.readFully(bytes);
