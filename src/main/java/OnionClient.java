@@ -275,15 +275,10 @@ public class OnionClient {
                                 + String.valueOf(portsToVisit[portsToVisit.length-1]).getBytes().length
                         );
                 byteBuffer.put(msgBytes);
-            } else {
-                byteBuffer = ByteBuffer.allocate(msgBytes.length);
-                byteBuffer.put(msgBytes);
+                byteBuffer.flip();
+                byteBuffer.get(msgBytes);
+                msgBytes = new byte[byteBuffer.limit()];
             }
-
-            byteBuffer.flip();
-
-            msgBytes = new byte[byteBuffer.limit()];
-            byteBuffer.get(msgBytes);
 
             msgBytes = CryptoUtil.encryptAES(msgBytes, msgBytes.length, secretKeys[i]);
         }
