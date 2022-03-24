@@ -47,7 +47,7 @@ public class OnionClient {
     }
 
     public void setDest() throws IOException {
-        try (BufferedReader br = new BufferedReader(new FileReader("C:\\Users\\hassa\\NTNU.Data\\2år\\2.sem\\Nettverksprogg\\onionprosjekt\\nettverk_prosjekt\\src\\main\\java\\ipnports.txt"))) {
+        try (BufferedReader br = new BufferedReader(new FileReader("src/main/java/ipnports.txt"))) {
             String line = br.readLine();
             int i = 0;
             while (line != null) {
