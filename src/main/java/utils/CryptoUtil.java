@@ -18,11 +18,10 @@ public class CryptoUtil {
      * @throws Exception if the key is invalid
      */
     public static byte[] decryptAES(byte[] encryptedData, int length, SecretKey key) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES");
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING");
         cipher.init(Cipher.DECRYPT_MODE, key);
-
-//        byte[] base64decodedTokenArr = Base64.getDecoder().decode(encryptedData);
-        return cipher.doFinal(encryptedData, 0, length);
+        return cipher.doFinal(Base64.getDecoder()
+                .decode(encryptedData));
     }
 
 
@@ -36,10 +35,10 @@ public class CryptoUtil {
      * @throws Exception if the key is invalid
      */
     public static byte[] encryptAES(byte[] data, int length, SecretKey key) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES");
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
         cipher.init(Cipher.ENCRYPT_MODE, key);
-
-        return cipher.doFinal(data, 0, length);
+        return Base64.getEncoder()
+                .encodeToString(cipher.doFinal(data)).getBytes();
     }
 
     /**
