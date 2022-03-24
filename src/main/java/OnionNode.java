@@ -10,17 +10,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.*;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Pattern;
 
 public class OnionNode {
 
@@ -56,7 +48,7 @@ public class OnionNode {
         this.port = port;
 
         logger.info("Node starting...");
-        logger.info(String.format("Node started at {}:{}", getIPAddress(), getPort()));
+        logger.info(String.format("Node started at %s:%s", getIPAddress(), getPort()));
     }
 
     public String getIPAddress() {
@@ -90,7 +82,7 @@ public class OnionNode {
         prevIP = connection.getRemoteSocketAddress().toString().split("[/:]")[1];
         prevPort = connection.getPort();
 
-        logger.info(String.format("IP of connected device: {}", prevIP));
+        logger.info(String.format("IP of connected device: %s", prevIP));
 
         int byteLength;
         byte[] bytes;
@@ -107,10 +99,10 @@ public class OnionNode {
 
 
             if("GivePK!!!".equals(tmp)) {
-                logger.info(String.format("Received from client: {}", tmp));
+                logger.info(String.format("Received from client: %s", tmp));
                 logger.info("Sending public key back to client...");
 
-                PublicKey pk = loadRSAPublicKey();
+                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys/rsa_pub.pub");
                 byte[] stBytes = pk.getEncoded();
 
                 dos.writeInt(stBytes.length);
@@ -118,7 +110,10 @@ public class OnionNode {
                 dos.flush();
 
             } else if(getSecretKey() == null) {
-                byte[] decrypted = CryptoUtil.decryptRSA(bytes, bytes.length, loadRSAPrivateKey());
+                byte[] decrypted = CryptoUtil.decryptRSA(
+                        bytes,
+                        bytes.length,
+                        CryptoUtil.loadRSAPrivateKey("./src/keys/rsa_pvt.key"));
 
                 SecretKey sk = new SecretKeySpec(decrypted, "AES");
                 setSecretKey(sk);
@@ -140,7 +135,7 @@ public class OnionNode {
                 nextPort = Integer.parseInt(st.split("[:/]")[1]);
                 String message = st.split("[:/]")[2];
 
-                logger.info(String.format("Received IP and Port of next device: {}:{}", nextIP, nextPort));
+                logger.info(String.format("Received IP and Port of next device: %s:%s", nextIP, nextPort));
 
                 forwardData(connection, message);
                 setupComplete = true;
@@ -198,7 +193,7 @@ public class OnionNode {
                     lastAction = "writeToPrev";
 
                     encrypted = CryptoUtil.encryptAES(bytes, bytes.length, getSecretKey());
-                    logger.info("Message to previous node encrypted!");
+                    logger.info("Message to previous node encrypted");
                     writeToPrev.writeInt(encrypted.length);
                     writeToPrev.write(encrypted);
                     logger.info("Message to previous node sent");
@@ -234,126 +229,7 @@ public class OnionNode {
     }
 
 
-    /**
-     * Creates a new private-public keypair of type RSA
-     *
-     * @throws NoSuchAlgorithmException if the generator doesn't recognize the encryption algorithm
-     * @throws IOException if the saveRSA method fails to save the keys
-     */
-    private void createRSA() throws IOException {
-        try {
-            KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-            kpg.initialize(2048);
 
-            KeyPair kp = kpg.generateKeyPair();
-
-            PublicKey pub = kp.getPublic();
-            PrivateKey pvt = kp.getPrivate();
-            saveRSA(pub, pvt);
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        }
-
-        //cleanUp(new File("./keys"));
-    }
-
-    /**
-     * Saves a public and a private key to two different files
-     *
-     * @param pub the public key
-     * @param pvt the private key
-     * @throws IOException if it fails to save to file
-     */
-    private void saveRSA(PublicKey pub, PrivateKey pvt) {
-        String pubOutFile = "rsa_pub.pub";
-        String pvtOutFile = "rsa_pvt.key";
-
-        File dir = new File("./src/keys/");
-        boolean dirCreated = dir.mkdir();
-
-        if(dirCreated) {
-            logger.info("Directory created");
-
-            File rsaPub = new File("./src/keys/" + pubOutFile);
-            File rsaPvt = new File("./src/keys/" + pvtOutFile);
-
-            try(FileOutputStream fosPub = new FileOutputStream(rsaPub)) {
-                fosPub.write(pub.getEncoded());
-            } catch (IOException e) {
-                logger.error(e.getMessage());
-            }
-
-            try(FileOutputStream fosPvt = new FileOutputStream(rsaPvt)) {
-                fosPvt.write(pvt.getEncoded());
-            } catch (IOException e) {
-                logger.error(e.getMessage());
-            }
-        }
-    }
-
-    /**
-     * Loads an RSA private key from file
-     *
-     * @return {@link PrivateKey}
-     */
-    private PrivateKey loadRSAPrivateKey() {
-
-        try {
-            Path path = Paths.get("./src/keys/rsa_pvt.key");
-            byte[] bytes = Files.readAllBytes(path);
-
-            PKCS8EncodedKeySpec ks = new PKCS8EncodedKeySpec(bytes);
-            KeyFactory kf = KeyFactory.getInstance("RSA");
-            PrivateKey pvt = kf.generatePrivate(ks);
-
-            return pvt;
-        } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
-            logger.error(e.getMessage());
-        }
-
-        return null;
-    }
-
-    /**
-     * Loads an RSA public key from file
-     *
-     * @return {@link PublicKey}
-     */
-    private PublicKey loadRSAPublicKey() {
-
-        try {
-            Path path = Paths.get("./src/keys/rsa_pub.pub");
-            byte[] bytes = Files.readAllBytes(path);
-
-            X509EncodedKeySpec ks = new X509EncodedKeySpec(bytes);
-            KeyFactory kf = KeyFactory.getInstance("RSA");
-            PublicKey pub = kf.generatePublic(ks);
-
-            return pub;
-        } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
-            logger.error(e.getMessage());
-        }
-
-        return null;
-    }
-
-    /**
-     * Deletes the generated public- and private key files with its folder
-     *
-     * @param file the {@link File} with the path to the directory of the public and private keys
-     * @return true if files and folders are deleted successfully, otherwise false
-     */
-    private boolean cleanUp(File file) {
-        File[] contents = file.listFiles();
-        if (contents != null) {
-            for (File f : contents) {
-                if (!Files.isSymbolicLink(f.toPath())) {
-                    cleanUp(f);
-                }
-            }
-        }
-        return file.delete();
-    }
 
     public static void main(String[] args) throws Exception {
         List<String> argsList = Arrays.asList(args);
@@ -361,9 +237,9 @@ public class OnionNode {
         if(argsList.contains("-p")) {
             int port = Integer.parseInt(argsList.get(argsList.indexOf("-p") + 1));
             OnionNode node = new OnionNode(port);
-            node.createRSA();
+            CryptoUtil.createRSA();
             node.setupConnection();
-            node.cleanUp(new File("./src/keys"));
+            CryptoUtil.cleanUp(new File("./src/keys"));
 
         }
 
