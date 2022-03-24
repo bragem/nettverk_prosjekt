@@ -321,8 +321,8 @@ public class OnionClient {
                 );
                 byteBuffer.put(msgBytes);
                 byteBuffer.flip();
-                byteBuffer.get(msgBytes);
                 msgBytes = new byte[byteBuffer.limit()];
+                byteBuffer.get(msgBytes);
             }
             msgBytes = CryptoUtil.encryptAES(msgBytes, msgBytes.length, secretKeys[i]);
         }
