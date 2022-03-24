@@ -97,6 +97,7 @@ public class OnionNode {
             dis.readFully(bytes);
 
             String tmp = new String(bytes, StandardCharsets.UTF_8);
+            System.out.println("Data received: " + tmp + "\n");
 
             DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
 
@@ -179,7 +180,8 @@ public class OnionNode {
         int byteLength = 0;
         byte[] bytes = null;
         byte[] encrypted = null;
-        String tmp;
+        byte[] decrypted = null;
+
 
         while(!quit) {
 
@@ -192,8 +194,7 @@ public class OnionNode {
                     bytes = new byte[byteLength];
                     readFromNext.readFully(bytes);
 
-                    tmp = new String(bytes, StandardCharsets.UTF_8);
-                    System.out.println("Received from next node: " + tmp + "\n");
+                    System.out.println("Received message from next node \n");
 
                     break;
                 case "readFromNext":
@@ -213,17 +214,18 @@ public class OnionNode {
                     bytes = new byte[byteLength];
                     readFromPrev.readFully(bytes);
 
-                    tmp = new String(bytes, StandardCharsets.UTF_8);
-                    System.out.println("Received from prev node: " + tmp + "\n");
+                    System.out.println("Received message from previous node \n");
 
                     break;
                 case "readFromPrev":
                     lastAction = "writeToNext";
 
-                    encrypted = CryptoUtil.encryptAES(bytes, bytes.length, getSecretKey());
-                    System.out.println("Message to next node encrypted!");
-                    writeToPrev.writeInt(encrypted.length);
-                    writeToPrev.write(encrypted);
+//                    bytes = new byte[readFromPrev.readInt()];
+//                    readFromPrev.readFully(bytes);
+                    decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
+                    System.out.println("Message to next node decrypted!");
+                    writeToNext.writeInt(decrypted.length);
+                    writeToNext.write(decrypted);
                     System.out.println("Message to next node sent!");
 
                     break;
@@ -267,14 +269,14 @@ public class OnionNode {
         String pubOutFile = "rsa_pub.pub";
         String pvtOutFile = "rsa_pvt.key";
 
-        File dir = new File("./src/main/java/keys/");
+        File dir = new File("./src/keys/");
         boolean dirCreated = dir.mkdir();
 
         if(dirCreated) {
             System.out.println("Directory created");
 
-            File rsaPub = new File("./src/main/java/keys/" + pubOutFile);
-            File rsaPvt = new File("./src/main/java/keys/" + pvtOutFile);
+            File rsaPub = new File("./src/keys/" + pubOutFile);
+            File rsaPvt = new File("./src/keys/" + pvtOutFile);
 
             try(FileOutputStream fosPub = new FileOutputStream(rsaPub)) {
                 fosPub.write(pub.getEncoded());
@@ -293,7 +295,7 @@ public class OnionNode {
     private PrivateKey loadRSAPrivateKey() {
 
         try {
-            Path path = Paths.get("./src/main/java/keys/rsa_pvt.key");
+            Path path = Paths.get("./src/keys/rsa_pvt.key");
             byte[] bytes = Files.readAllBytes(path);
 
             PKCS8EncodedKeySpec ks = new PKCS8EncodedKeySpec(bytes);
@@ -311,7 +313,7 @@ public class OnionNode {
     private PublicKey loadRSAPublicKey() {
 
         try {
-            Path path = Paths.get("./src/main/java/keys/rsa_pub.pub");
+            Path path = Paths.get("./src/keys/rsa_pub.pub");
             byte[] bytes = Files.readAllBytes(path);
 
             X509EncodedKeySpec ks = new X509EncodedKeySpec(bytes);
@@ -346,7 +348,7 @@ public class OnionNode {
             OnionNode node = new OnionNode(port);
             node.createRSA();
             node.setupConnection();
-            node.cleanUp(new File("./src/main/java/keys"));
+            node.cleanUp(new File("./src/keys"));
 
 
 
