@@ -57,7 +57,7 @@ public class OnionClient {
      * work to implement, as we always get different ips on the school network
      * @throws IOException when {@link BufferedReader} throws IOException
      */
-    public void setDest() throws IOException {
+    public void setNodeDestinations() throws IOException {
         try (BufferedReader br = new BufferedReader(new FileReader("src/main/java/ipnports.txt"))) {
             String line = br.readLine();
             int i = 0;
@@ -99,7 +99,7 @@ public class OnionClient {
      */
     private void run() throws Exception {
         System.out.println("Receiving public key from node...");
-        getPublicKey();
+        setup();
         System.out.println("Setup complete");
 
         System.out.println("\n\nPlease write your message, enter when finished.");
@@ -142,14 +142,18 @@ public class OnionClient {
         socket.close();
     }
 
-    public void getPublicKey() throws Exception {
+    /**
+     * Setup establishes connection between client and its nodes
+     * @throws Exception thrown when {@link DataInputStream},{@link DataOutputStream} fails
+     */
+    public void setup() throws Exception {
         String msg = "GivePK!!!";
         for (int i = 0; i < nrOfNodes; i++) {
             //Public key is first received from using the method askForKey for the first node, then
             //we use connectSetup method to get public keys for the rest of the nodes.
             if (i == 0){
                 //public key for first node is received
-                publicKeys[0] = askForKey(msg);
+                publicKeys[0] = firstNodeKey(msg);
                 byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[0].getEncoded(), secretKeys[0].getEncoded().length, publicKeys[0]);
                 //secret key is encrypted in the public key received and is sent
                 writer.writeInt(secretKey.length);
@@ -162,11 +166,11 @@ public class OnionClient {
             }
             else {
                 //public key for first node is received
-                publicKeys[i] = connectSetup(i, msg);
+                publicKeys[i] = getPublicKey(i, msg);
                 System.out.println("public key received from node " + i);
                 byte[] secretKey = CryptoUtil.encryptRSA(secretKeys[i].getEncoded(), secretKeys[i].getEncoded().length, publicKeys[i]);
                 //secret key encrypted in prev node secret keys and is sent
-                secretKey = encrypt(i,secretKey);
+                secretKey = encryptSecretKey(i,secretKey);
                 writer.writeInt(secretKey.length);
                 writer.write(secretKey);
                 System.out.println("secret key sent");
@@ -191,7 +195,7 @@ public class OnionClient {
      * @throws NoSuchAlgorithmException thrown when {@link KeyFactory} has failed
      * @throws InvalidKeySpecException thrown when  {@link KeyFactory} generation of public key fails
      */
-    public PublicKey askForKey(String msg) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
+    public PublicKey firstNodeKey(String msg) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
 
         byte[] askForKeyBytes = msg.getBytes();
         writer.writeInt(askForKeyBytes.length);
@@ -212,7 +216,7 @@ public class OnionClient {
      * @return public key from the node
      * @throws Exception thrown when {@link CryptoUtil} decrypting or encrypting
      */
-    private PublicKey connectSetup(int i, String msg) throws Exception{
+    private PublicKey getPublicKey(int i, String msg) throws Exception{
         //encrypt secret keys
         byte[] secretKeyByte = secretKeys[i-1].getEncoded();
         byte[] cryptData = CryptoUtil.encryptRSA(secretKeyByte, secretKeyByte.length, publicKeys[i-1]);
@@ -270,7 +274,7 @@ public class OnionClient {
      * @return byte array of the complete encrypted message to reach the desired node
      * @throws Exception thrown when  {@link CryptoUtil} encrypting
      */
-    public byte[] encrypt(int nowNode, byte[] msg) throws Exception {
+    public byte[] encryptSecretKey(int nowNode, byte[] msg) throws Exception {
         byte[] byteMessage = Arrays.copyOf(msg, msg.length);
         // encryption
         for (int i = nowNode; i >= 0; i--) {
@@ -337,7 +341,7 @@ public class OnionClient {
     public static void main(String[] args) throws Exception {
         int tempNodes = 3;
         OnionClient onionClient = new OnionClient(tempNodes, "localhost", 8119);
-        onionClient.setDest();
+        onionClient.setNodeDestinations();
         onionClient.run();
     }
 }
