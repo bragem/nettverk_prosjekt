@@ -225,12 +225,6 @@ public class OnionNode {
                     writeToNext.writeInt(decrypted.length);
                     writeToNext.write(decrypted);
                     logger.info("Message to next node sent");
-                    System.out.println();
-
-                    if ((new String(decrypted,StandardCharsets.UTF_8)).split("[:]")[0].equalsIgnoreCase("quit")){
-                        logger.info("Shutting down connection");
-                        quit = true;
-                    }
 
                     break;
                 default:

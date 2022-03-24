@@ -47,15 +47,14 @@ public class OnionServer {
 
 
     public void run() throws IOException {
-        ServerSocket server = new ServerSocket(PORT_NUM);
-        System.out.println("Waiting for connection...");
+        logger.info("Waiting for connection...");
         Socket conn = server.accept();
-        System.out.println("Connection established");
+        logger.info("Connection established");
 
         DataInputStream reader
                 = new DataInputStream(new BufferedInputStream(conn.getInputStream()));
         DataOutputStream writer = new DataOutputStream(conn.getOutputStream());
-        BufferedReader read = new BufferedReader(new InputStreamReader(System.in));
+
         while(true) {
             int l = reader.readInt();
             byte[] msgBytes = new byte[l];
@@ -63,28 +62,103 @@ public class OnionServer {
             String clientMsg = new String(msgBytes, StandardCharsets.UTF_8);
             logger.info(String.format("Message from Client is: %s", clientMsg));
 
-            if(!("quit".equals(clientMsg))) {
-                System.out.println("Write your message: ");
-                String msg = read.readLine();
-                msgBytes = msg.getBytes();
-                writer.writeInt(msgBytes.length);
-                writer.write(msgBytes);
-                logger.info(String.format("Message sent to Client: %s", msg));
-            } else {
-                String msgToClient = (clientMsg + " -love from server");
-                msgBytes = msgToClient.getBytes();
-                writer.writeInt(msgBytes.length);
-                writer.write(msgBytes);
-                logger.info("Shutting down...");
-                break;
+            if("GivePK!!!".equals(clientMsg)) {
+                logger.info(String.format("Received from client: %s", clientMsg));
+                logger.info("Sending public key back to client...");
+
+                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys/rsa_pub.pub");
+                byte[] stBytes = pk.getEncoded();
+
+                writer.writeInt(stBytes.length);
+                writer.write(stBytes);
+                writer.flush();
+
+            } else if(getSecretKey() == null) {
+                byte[] decrypted = CryptoUtil.decryptRSA(msgBytes, msgBytes.length, CryptoUtil.loadRSAPrivateKey("./src/keys/rsa_pvt.key"));
+
+                SecretKey sk = new SecretKeySpec(decrypted, "AES");
+                setSecretKey(sk);
+
+                logger.info("Secret key received from client");
+
+                String response = "Secret key set at server " + getIPAddress() + ":" + getPort();
+                byte[] responseBytes = response.getBytes();
+                byte[] encrypted = CryptoUtil.encryptAES(responseBytes, responseBytes.length, getSecretKey());
+
+                writer.writeInt(encrypted.length);
+                writer.write(encrypted);
+                writer.flush();
+
+                try {
+                    sendAndReceive(conn);
+                } catch (Exception e) {
+                    logger.error(e.getMessage());
+                }
+
             }
         }
 
-        reader.close();
-        writer.close();
-        conn.close();
-        server.close();
     }
+
+    /**
+     * Takes an already established connection and creates a second one, to receive from one and send on the other
+     *
+     * @param connection the {@link Socket} that is already created
+     * @throws Exception thrown by io stream
+     */
+    public void sendAndReceive(Socket connection) throws Exception {
+
+        DataInputStream readFromPrev = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
+        DataOutputStream writeToPrev = new DataOutputStream((connection.getOutputStream()));
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+
+        int byteLength;
+        byte[] bytes;
+        byte[] encrypted;
+        byte[] decrypted;
+        String receivedMessage;
+        String sentMessage;
+
+
+        while(true) {
+
+            byteLength = readFromPrev.readInt();
+            bytes = new byte[byteLength];
+            readFromPrev.readFully(bytes);
+
+            decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
+            receivedMessage = new String(decrypted, StandardCharsets.UTF_8);
+
+            logger.info(String.format("Received message from client: %s", receivedMessage));
+
+            if("quit".equalsIgnoreCase(receivedMessage)) {
+//                String msgToClient = "bye";
+//                sentMessage = String.format("%s -love from server", msgToClient);
+//                encrypted = CryptoUtil.encryptAES(sentMessage.getBytes(), sentMessage.getBytes().length, getSecretKey());
+//                writeToPrev.writeInt(encrypted.length);
+//                writeToPrev.write(encrypted);
+                logger.warn("Shutting down...");
+                readFromPrev.close();
+                writeToPrev.close();
+                reader.close();
+                server.close();
+                System.exit(0);
+                break;
+            } else {
+                System.out.println("Write your message to the client: ");
+                String msgToClient = reader.readLine();
+
+                encrypted = CryptoUtil.encryptAES(msgToClient.getBytes(), msgToClient.getBytes().length, getSecretKey());
+                writeToPrev.writeInt(encrypted.length);
+                writeToPrev.write(encrypted);
+                logger.info("Message sent: " + msgToClient);
+            }
+
+        }
+
+    }
+
 
     public static void main(String[] args) throws IOException {
         OnionServer server = new OnionServer();
