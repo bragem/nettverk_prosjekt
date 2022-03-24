@@ -23,35 +23,30 @@ import java.util.regex.Pattern;
 public class OnionNode {
 
     // Network info of node
-    private String hostName;
     private String IPAddress;
     private int port;
 
     // Secret symmetric key
     private SecretKey secretKey;
 
+    // Sockets for communicating back and forth
     private ServerSocket serverSocket;
     private Socket socket;
 
+    // IP and Port of device connected to this node
     private String prevIP;
     private int prevPort;
 
+    // IP of the device that this node connects to
     private String nextIP;
     private int nextPort;
 
-    private Pattern IPv4 = Pattern.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
-
     public OnionNode(int port) throws UnknownHostException {
-        this.hostName = InetAddress.getLocalHost().getHostName();
         this.IPAddress = InetAddress.getByName(InetAddress.getLocalHost().getHostName()).getHostAddress();
         this.port = port;
 
         System.out.println("Node starting...");
         System.out.println("Node started at " + this.getIPAddress() + " on port " + this.getPort());
-    }
-
-    public String getHostName() {
-        return hostName;
     }
 
     public String getIPAddress() {
@@ -79,27 +74,27 @@ public class OnionNode {
         serverSocket = new ServerSocket(port);
 
         Socket connection = serverSocket.accept();
+        DataInputStream dis = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
+        DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
+
         prevIP = connection.getRemoteSocketAddress().toString().split("[/:]")[1];
         prevPort = connection.getPort();
 
-        System.out.println("IP of connected client: " + prevIP + "\n");
-        DataInputStream dis = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
+        System.out.println("IP of connected device: " + prevIP + "\n");
+
 
         int byteLength;
         byte[] bytes;
         String received;
-
         boolean setupComplete = false;
 
         while(!setupComplete) {
+
             byteLength = dis.readInt();
             bytes = new byte[byteLength];
             dis.readFully(bytes);
 
             String tmp = new String(bytes, StandardCharsets.UTF_8);
-            System.out.println("Data received: " + tmp + "\n");
-
-            DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
 
 
             if("GivePK!!!".equals(tmp)) {
@@ -107,24 +102,21 @@ public class OnionNode {
                 System.out.println("Sending public key back to client...");
 
                 PublicKey pk = loadRSAPublicKey();
-
-
                 byte[] stBytes = pk.getEncoded();
 
                 dos.writeInt(stBytes.length);
                 dos.write(stBytes);
-                System.out.println("Public key was sent\n");
                 dos.flush();
 
-            } else if(getSecretKey() == null) { // IPv4.matcher(tmp.substring(0, 11)).matches()
+            } else if(getSecretKey() == null) {
                 byte[] decrypted = CryptoUtil.decryptRSA(bytes, bytes.length, loadRSAPrivateKey());
 
                 SecretKey sk = new SecretKeySpec(decrypted, "AES");
                 setSecretKey(sk);
 
-                System.out.println("New message received from client: " + new String(sk.getEncoded(), StandardCharsets.UTF_8));
+                System.out.println("Secret key received from client");
 
-                String response = "My secret key is now set!";
+                String response = "Secret key set at node " + getIPAddress() + ":" + getPort();
                 byte[] responseBytes = response.getBytes();
                 byte[] encrypted = CryptoUtil.encryptAES(responseBytes, responseBytes.length, getSecretKey());
 
@@ -133,30 +125,23 @@ public class OnionNode {
                 dos.flush();
             } else {
                 byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
-
                 String st = new String(decrypted, StandardCharsets.UTF_8);
 
                 nextIP = st.split("[:/]")[0];
                 nextPort = Integer.parseInt(st.split("[:/]")[1]);
                 String message = st.split("[:/]")[2];
 
-
-                System.out.println("Next IP is: " + nextIP + "");
-                System.out.println("Next Port is: " + nextPort + "\n");
-
-                System.out.println("Message received from client: " + st);
+                System.out.println("Received IP and Port of next device: " + nextIP + ":" + nextPort);
 
                 forwardData(connection, message);
                 setupComplete = true;
             }
         }
 
-
     }
 
 
     public void forwardData(Socket connection, String firstMessage) throws Exception {
-        System.out.println("Message to next node is: " + firstMessage);
 
         boolean quit = false;
         DataInputStream readFromPrev = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
@@ -168,7 +153,6 @@ public class OnionNode {
 
 
         writeToNext.writeInt(firstMessage.getBytes().length);
-        System.out.println("Length of firstMessage: " + firstMessage.getBytes().length);
 
         writeToNext.write(firstMessage.getBytes());
         System.out.println("First message to next node is now sent!");
@@ -292,6 +276,11 @@ public class OnionNode {
         }
     }
 
+    /**
+     * Loads an RSA private key from file
+     *
+     * @return {@link PrivateKey}
+     */
     private PrivateKey loadRSAPrivateKey() {
 
         try {
@@ -310,6 +299,11 @@ public class OnionNode {
         return null;
     }
 
+    /**
+     * Loads an RSA public key from file
+     *
+     * @return {@link PublicKey}
+     */
     private PublicKey loadRSAPublicKey() {
 
         try {
@@ -328,6 +322,11 @@ public class OnionNode {
         return null;
     }
 
+    /**
+     * Deletes the generated public- and private key files with its folder
+     *
+     * @param file the {@link File} with the path to the directory of the public and private keys
+     */
     private void cleanUp(File file) {
         File[] contents = file.listFiles();
         if (contents != null) {
@@ -350,10 +349,6 @@ public class OnionNode {
             node.setupConnection();
             node.cleanUp(new File("./src/keys"));
 
-
-
-            /*System.out.println("Public key format: \n" + node.getPublicKey() + "\n\n");
-            System.out.println("Private key format: \n" + node.getPrivateKey() + "\n\n");*/
         }
 
     }
