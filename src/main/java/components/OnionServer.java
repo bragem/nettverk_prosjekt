@@ -16,7 +16,7 @@ public class OnionServer {
         DataInputStream reader
                 = new DataInputStream(new BufferedInputStream(conn.getInputStream()));
         DataOutputStream writer = new DataOutputStream(conn.getOutputStream());
-
+        BufferedReader read = new BufferedReader(new InputStreamReader(System.in));
         while(true) {
             int l = reader.readInt();
             byte[] msgBytes = new byte[l];
@@ -24,11 +24,13 @@ public class OnionServer {
             String clientMsg = new String(msgBytes, StandardCharsets.UTF_8);
             System.out.println("Message from Client is: " + clientMsg);
 
-            if(!("0".equals(clientMsg))) {
-                String msgToClient = (clientMsg + " -love from server");
-                msgBytes = msgToClient.getBytes();
+            if(!("quit".equals(clientMsg))) {
+                System.out.println("Write your message: ");
+                String msg = read.readLine();
+                msgBytes = msg.getBytes();
                 writer.writeInt(msgBytes.length);
                 writer.write(msgBytes);
+                System.out.println("Message sent to Client: " + msg);
             } else {
                 String msgToClient = (clientMsg + " -love from server");
                 msgBytes = msgToClient.getBytes();
