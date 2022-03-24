@@ -282,20 +282,25 @@ public class OnionClient {
     public byte[] encryptMessage(byte[] msg) throws Exception {
         byte[] msgBytes = Arrays.copyOf(msg, msg.length);
 
-        for (int i = nrOfNodes-1; i >= 0; i--) {
+        for (int i = nrOfNodes; i >= 0; i--) {
             ByteBuffer byteBuffer;
-            if (i == nrOfNodes-1) {
+            if (i == nrOfNodes) {
                 byteBuffer = ByteBuffer.allocate(msgBytes.length
-                                + inetAddresses[inetAddresses.length-1].getBytes().length
-                                + String.valueOf(portsToVisit[portsToVisit.length-1]).getBytes().length
-                        );
+                        + endIP.getBytes().length
+                        + ":".getBytes().length
+                        + "/".getBytes().length
+                        + String.valueOf(endPort).getBytes().length);
+                byteBuffer.put(endIP.getBytes());
+                byteBuffer.put(":".getBytes());
+                byteBuffer.put(String.valueOf(endPort).getBytes());
+                byteBuffer.put("/".getBytes());
                 byteBuffer.put(msgBytes);
                 byteBuffer.flip();
-                byteBuffer.get(msgBytes);
                 msgBytes = new byte[byteBuffer.limit()];
+                byteBuffer.get(msgBytes);
+            } else {
+                msgBytes = CryptoUtil.encryptAES(msgBytes, msgBytes.length, secretKeys[i]);
             }
-
-            msgBytes = CryptoUtil.encryptAES(msgBytes, msgBytes.length, secretKeys[i]);
         }
         return msgBytes;
     }
