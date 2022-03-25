@@ -74,74 +74,78 @@ public class OnionNode {
      *
      * @throws Exception
      */
-    public void setupConnection() throws Exception {
-        serverSocket = new ServerSocket(port);
+    public void setupConnection() {
+        try {
+            serverSocket = new ServerSocket(port);
 
-        Socket connection = serverSocket.accept();
-        DataInputStream dis = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
-        DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
+            Socket connection = serverSocket.accept();
+            DataInputStream dis = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
+            DataOutputStream dos = new DataOutputStream(connection.getOutputStream());
 
-        prevIP = connection.getRemoteSocketAddress().toString().split("[/:]")[1];
-        prevPort = connection.getPort();
+            prevIP = connection.getRemoteSocketAddress().toString().split("[/:]")[1];
+            prevPort = connection.getPort();
 
-        logger.info(String.format("IP of connected device: %s", prevIP));
+            logger.info(String.format("IP of connected device: %s", prevIP));
 
-        int byteLength;
-        byte[] bytes;
-        String received;
-        boolean setupComplete = false;
+            int byteLength;
+            byte[] bytes;
+            String received;
+            boolean setupComplete = false;
 
-        while(!setupComplete) {
+            while(!setupComplete) {
 
-            byteLength = dis.readInt();
-            bytes = new byte[byteLength];
-            dis.readFully(bytes);
+                byteLength = dis.readInt();
+                bytes = new byte[byteLength];
+                dis.readFully(bytes);
 
-            String tmp = new String(bytes, StandardCharsets.UTF_8);
+                String tmp = new String(bytes, StandardCharsets.UTF_8);
 
 
-            if("GivePK!!!".equals(tmp)) {
-                logger.info(String.format("Received from client: %s", tmp));
-                logger.info("Sending public key back to client...");
+                if("GivePK!!!".equals(tmp)) {
+                    logger.info(String.format("Received from client: %s", tmp));
+                    logger.info("Sending public key back to client...");
 
-                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys/rsa_pub.pub");
-                byte[] stBytes = pk.getEncoded();
+                    PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys/rsa_pub.pub");
+                    byte[] stBytes = pk.getEncoded();
 
-                dos.writeInt(stBytes.length);
-                dos.write(stBytes);
-                dos.flush();
+                    dos.writeInt(stBytes.length);
+                    dos.write(stBytes);
+                    dos.flush();
 
-            } else if(getSecretKey() == null) {
-                byte[] decrypted = CryptoUtil.decryptRSA(
-                        bytes,
-                        bytes.length,
-                        CryptoUtil.loadRSAPrivateKey("./src/keys/rsa_pvt.key"));
+                } else if(getSecretKey() == null) {
+                    byte[] decrypted = CryptoUtil.decryptRSA(
+                            bytes,
+                            bytes.length,
+                            CryptoUtil.loadRSAPrivateKey("./src/keys/rsa_pvt.key"));
 
-                SecretKey sk = new SecretKeySpec(decrypted, "AES");
-                setSecretKey(sk);
+                    SecretKey sk = new SecretKeySpec(decrypted, "AES");
+                    setSecretKey(sk);
 
-                logger.info("Secret key received from client");
+                    logger.info("Secret key received from client");
 
-                String response = "Secret key set at node " + getIPAddress() + ":" + getPort();
-                byte[] responseBytes = response.getBytes();
-                byte[] encrypted = CryptoUtil.encryptAES(responseBytes, responseBytes.length, getSecretKey());
+                    String response = "Secret key set at node " + getIPAddress() + ":" + getPort();
+                    byte[] responseBytes = response.getBytes();
+                    byte[] encrypted = CryptoUtil.encryptAES(responseBytes, responseBytes.length, getSecretKey());
 
-                dos.writeInt(encrypted.length);
-                dos.write(encrypted);
-                dos.flush();
-            } else {
-                byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
-                String st = new String(decrypted, StandardCharsets.UTF_8);
+                    dos.writeInt(encrypted.length);
+                    dos.write(encrypted);
+                    dos.flush();
+                } else {
+                    byte[] decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
+                    String st = new String(decrypted, StandardCharsets.UTF_8);
 
-                nextIP = st.split("[:/]")[0];
-                nextPort = Integer.parseInt(st.split("[:/]")[1]);
-                String message = st.split("[:/]")[2];
+                    nextIP = st.split("[:/]")[0];
+                    nextPort = Integer.parseInt(st.split("[:/]")[1]);
+                    String message = st.split("[:/]")[2];
 
-                logger.info(String.format("Received IP and Port of next device: %s:%s", nextIP, nextPort));
+                    logger.info(String.format("Received IP and Port of next device: %s:%s", nextIP, nextPort));
 
-                forwardData(connection, message);
-                setupComplete = true;
+                    forwardData(connection, message);
+                    setupComplete = true;
+                }
             }
+        } catch (IOException e) {
+            logger.error(e.getMessage());
         }
 
     }
@@ -153,84 +157,86 @@ public class OnionNode {
      * @param firstMessage the first message to forward to the next node
      * @throws Exception
      */
-    public void forwardData(Socket connection, String firstMessage) throws Exception {
-
+    public void forwardData(Socket connection, String firstMessage) {
         boolean quit = false;
-        DataInputStream readFromPrev = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
-        DataOutputStream writeToPrev = new DataOutputStream((connection.getOutputStream()));
 
-        socket = new Socket(nextIP, nextPort);
-        DataInputStream readFromNext = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-        DataOutputStream writeToNext = new DataOutputStream((socket.getOutputStream()));
+        try {
+            DataInputStream readFromPrev = new DataInputStream(new BufferedInputStream(connection.getInputStream()));
+            DataOutputStream writeToPrev = new DataOutputStream((connection.getOutputStream()));
 
-
-        writeToNext.writeInt(firstMessage.getBytes().length);
-        writeToNext.write(firstMessage.getBytes());
-        writeToNext.flush();
-        logger.info("First message to next node now sent");
-
-        String lastAction = "writeToNext";
-
-        int byteLength = 0;
-        byte[] bytes = null;
-        byte[] encrypted = null;
-        byte[] decrypted = null;
+            socket = new Socket(nextIP, nextPort);
+            DataInputStream readFromNext = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+            DataOutputStream writeToNext = new DataOutputStream((socket.getOutputStream()));
 
 
-        while(!quit) {
+            writeToNext.writeInt(firstMessage.getBytes().length);
+            writeToNext.write(firstMessage.getBytes());
+            writeToNext.flush();
+            logger.info("First message to next node now sent");
 
-            switch(lastAction){
-                case "writeToNext":
-                    //trenger sjekk om det står quit eller teardown i meldinga
-                    lastAction = "readFromNext";
+            String lastAction = "writeToNext";
 
-                    byteLength = readFromNext.readInt();
-                    bytes = new byte[byteLength];
-                    readFromNext.readFully(bytes);
+            int byteLength = 0;
+            byte[] bytes = null;
+            byte[] encrypted = null;
+            byte[] decrypted = null;
 
-                    logger.info("Received message from next node");
 
-                    break;
-                case "readFromNext":
-                    lastAction = "writeToPrev";
+            while(!quit) {
 
-                    encrypted = CryptoUtil.encryptAES(bytes, bytes.length, getSecretKey());
-                    logger.info("Message to previous node encrypted");
-                    writeToPrev.writeInt(encrypted.length);
-                    writeToPrev.write(encrypted);
-                    logger.info("Message to previous node sent");
+                switch(lastAction){
+                    case "writeToNext":
+                        //trenger sjekk om det står quit eller teardown i meldinga
+                        lastAction = "readFromNext";
 
-                    break;
-                case "writeToPrev":
-                    lastAction = "readFromPrev";
+                        byteLength = readFromNext.readInt();
+                        bytes = new byte[byteLength];
+                        readFromNext.readFully(bytes);
 
-                    byteLength = readFromPrev.readInt();
-                    bytes = new byte[byteLength];
-                    readFromPrev.readFully(bytes);
+                        logger.info("Received message from next node");
 
-                    logger.info("Received message from previous node");
+                        break;
+                    case "readFromNext":
+                        lastAction = "writeToPrev";
 
-                    break;
-                case "readFromPrev":
-                    lastAction = "writeToNext";
+                        encrypted = CryptoUtil.encryptAES(bytes, bytes.length, getSecretKey());
+                        logger.info("Message to previous node encrypted");
+                        writeToPrev.writeInt(encrypted.length);
+                        writeToPrev.write(encrypted);
+                        logger.info("Message to previous node sent");
 
-                    decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
-                    logger.info("Message to next node decrypted");
-                    writeToNext.writeInt(decrypted.length);
-                    writeToNext.write(decrypted);
-                    logger.info("Message to next node sent");
-                    System.out.println();
+                        break;
+                    case "writeToPrev":
+                        lastAction = "readFromPrev";
 
-                    break;
-                default:
-                    logger.info("Something weird happened");
+                        byteLength = readFromPrev.readInt();
+                        bytes = new byte[byteLength];
+                        readFromPrev.readFully(bytes);
+
+                        logger.info("Received message from previous node");
+
+                        break;
+                    case "readFromPrev":
+                        lastAction = "writeToNext";
+
+                        decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
+                        logger.info("Message to next node decrypted");
+                        writeToNext.writeInt(decrypted.length);
+                        writeToNext.write(decrypted);
+                        logger.info("Message to next node sent");
+                        System.out.println();
+
+                        break;
+                    default:
+                        logger.info("Something weird happened");
+                }
+
             }
-
+        } catch (IOException e) {
+            logger.error(e.getMessage());
         }
 
     }
-
-
 
 
     public static void main(String[] args) throws Exception {
