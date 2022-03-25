@@ -244,7 +244,7 @@ public class OnionNode {
         if(argsList.contains("-p")) {
             int port = Integer.parseInt(argsList.get(argsList.indexOf("-p") + 1));
             OnionNode node = new OnionNode(port);
-            CryptoUtil.createRSA();
+            CryptoUtil.createRSA(node.getPort());
             node.setupConnection();
             CryptoUtil.cleanUp(new File("./src/keys_" + node.getPort()));
 

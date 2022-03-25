@@ -118,7 +118,7 @@ public class CryptoUtil {
      * @throws NoSuchAlgorithmException if the generator doesn't recognize the encryption algorithm
      * @throws IOException if the saveRSA method fails to save the keys
      */
-    public static void createRSA() throws IOException {
+    public static void createRSA(int port) throws IOException {
         try {
             KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
             kpg.initialize(2048);
@@ -127,7 +127,7 @@ public class CryptoUtil {
 
             PublicKey pub = kp.getPublic();
             PrivateKey pvt = kp.getPrivate();
-            saveRSA(pub, pvt);
+            saveRSA(pub, pvt, port);
         } catch (NoSuchAlgorithmException e) {
             logger.error(e.getMessage());
         }
@@ -142,7 +142,7 @@ public class CryptoUtil {
      * @param pvt the private key
      * @throws IOException if it fails to save to file
      */
-    public static void saveRSA(PublicKey pub, PrivateKey pvt) {
+    public static void saveRSA(PublicKey pub, PrivateKey pvt, int port) {
         String pubOutFile = "rsa_pub.pub";
         String pvtOutFile = "rsa_pvt.key";
 
