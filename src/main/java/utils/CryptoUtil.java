@@ -146,14 +146,14 @@ public class CryptoUtil {
         String pubOutFile = "rsa_pub.pub";
         String pvtOutFile = "rsa_pvt.key";
 
-        File dir = new File("./src/keys/");
+        File dir = new File("./src/keys_" + port);
         boolean dirCreated = dir.mkdir();
 
         if(dirCreated) {
             logger.info("Directory created");
 
-            File rsaPub = new File("./src/keys/" + pubOutFile);
-            File rsaPvt = new File("./src/keys/" + pvtOutFile);
+            File rsaPub = new File("./src/keys_"+ port +"/"+ pubOutFile);
+            File rsaPvt = new File("./src/keys_"+ port +"/"+ pvtOutFile);
 
             try(FileOutputStream fosPub = new FileOutputStream(rsaPub)) {
                 fosPub.write(pub.getEncoded());

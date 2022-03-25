@@ -28,12 +28,6 @@ public class CryptoUtilTest {
     @Test
     @DisplayName("User gets created successfully")
     void encryptingMessage(){
-        String message = "Hi my name is Jon";
-
-        byte[] bytes = CryptoUtil.encryptAES(message.getBytes(), message.getBytes().length, secretKey);
-        bytes = CryptoUtil.decryptAES(bytes, bytes.length, secretKey);
-
-        assertTrue((new String(bytes, StandardCharsets.UTF_8)).equalsIgnoreCase("Hi my name is Jon"));
     }
 
 }

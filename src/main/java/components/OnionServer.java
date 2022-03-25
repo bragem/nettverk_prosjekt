@@ -47,6 +47,8 @@ public class OnionServer {
 
 
     public void run() throws IOException {
+        CryptoUtil.createRSA(PORT_NUM);
+
         logger.info("Waiting for connection...");
         Socket conn = server.accept();
         logger.info("Connection established");
@@ -66,7 +68,7 @@ public class OnionServer {
                 logger.info(String.format("Received from client: %s", clientMsg));
                 logger.info("Sending public key back to client...");
 
-                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys/rsa_pub.pub");
+                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys_" + PORT_NUM + "/rsa_pub.pub");
                 byte[] stBytes = pk.getEncoded();
 
                 writer.writeInt(stBytes.length);
@@ -74,7 +76,7 @@ public class OnionServer {
                 writer.flush();
 
             } else if(getSecretKey() == null) {
-                byte[] decrypted = CryptoUtil.decryptRSA(msgBytes, msgBytes.length, CryptoUtil.loadRSAPrivateKey("./src/keys/rsa_pvt.key"));
+                byte[] decrypted = CryptoUtil.decryptRSA(msgBytes, msgBytes.length, CryptoUtil.loadRSAPrivateKey("./src/keys_"+PORT_NUM+"/rsa_pvt.key"));
 
                 SecretKey sk = new SecretKeySpec(decrypted, "AES");
                 setSecretKey(sk);

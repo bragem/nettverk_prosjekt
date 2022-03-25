@@ -104,7 +104,7 @@ public class OnionNode {
                 logger.info(String.format("Received from client: %s", tmp));
                 logger.info("Sending public key back to client...");
 
-                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys/rsa_pub.pub");
+                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys_"+port+"/rsa_pub.pub");
                 byte[] stBytes = pk.getEncoded();
 
                 dos.writeInt(stBytes.length);
@@ -115,7 +115,7 @@ public class OnionNode {
                 byte[] decrypted = CryptoUtil.decryptRSA(
                         bytes,
                         bytes.length,
-                        CryptoUtil.loadRSAPrivateKey("./src/keys/rsa_pvt.key"));
+                        CryptoUtil.loadRSAPrivateKey("./src/keys_"+port+"/rsa_pvt.key"));
 
                 SecretKey sk = new SecretKeySpec(decrypted, "AES");
                 setSecretKey(sk);
@@ -246,7 +246,7 @@ public class OnionNode {
             OnionNode node = new OnionNode(port);
             CryptoUtil.createRSA();
             node.setupConnection();
-            CryptoUtil.cleanUp(new File("./src/keys"));
+            CryptoUtil.cleanUp(new File("./src/keys_" + node.getPort()));
 
         }
 
