@@ -348,16 +348,7 @@ public class OnionClient {
             //ip and end port of server is encrypted in the loop
             if (i == nrOfNodes-1) {
                 byteBuffer = ByteBuffer.allocate(msgBytes.length
-//                        + endIP.getBytes().length
-//                        + String.valueOf(endPort).getBytes().length
-//                        + ":".getBytes().length
-//                        + "/".getBytes().length
-//                        + String.valueOf(portsToVisit[portsToVisit.length-1]).getBytes().length
                 );
-//                byteBuffer.put(endIP.getBytes());
-//                byteBuffer.put(":".getBytes());
-//                byteBuffer.put(String.valueOf(endPort).getBytes());
-//                byteBuffer.put("/".getBytes());
                 byteBuffer.put(msgBytes);
                 byteBuffer.flip();
                 msgBytes = new byte[byteBuffer.limit()];
