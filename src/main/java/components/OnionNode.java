@@ -16,6 +16,9 @@ import java.security.*;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Node class which encrypts, decrypts and sends messages back and forth
+ */
 public class OnionNode {
 
     private static Logger logger = LoggerFactory.getLogger(OnionNode.class);

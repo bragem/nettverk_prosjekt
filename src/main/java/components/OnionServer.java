@@ -4,6 +4,9 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Server class that waits for connection from client
+ */
 public class OnionServer {
     final int PORT_NUM = 8119;
 
