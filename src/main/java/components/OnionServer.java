@@ -10,20 +10,23 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
+import java.util.Arrays;
+import java.util.List;
 
 public class OnionServer {
-    final int PORT_NUM = 8119;
+    int port;
     private String IPAddress;
 
-    ServerSocket server = new ServerSocket(PORT_NUM);
+    ServerSocket server = new ServerSocket(port);
 
     // Secret symmetric key
     private SecretKey secretKey;
 
     private static Logger logger = LoggerFactory.getLogger(OnionClient.class);
 
-    public OnionServer() throws IOException {
+    public OnionServer(int port) throws IOException {
         this.IPAddress = InetAddress.getByName(InetAddress.getLocalHost().getHostName()).getHostAddress();
+        this.port = port;
 
         logger.info("Server starting...");
         logger.info(String.format("Server started at %s:%s", getIPAddress(), getPort()));
@@ -42,12 +45,12 @@ public class OnionServer {
     }
 
     public int getPort() {
-        return PORT_NUM;
+        return port;
     }
 
 
     public void run() throws IOException {
-        CryptoUtil.createRSA(PORT_NUM);
+        CryptoUtil.createRSA(port);
 
         logger.info("Waiting for connection...");
         Socket conn = server.accept();
@@ -68,7 +71,7 @@ public class OnionServer {
                 logger.info(String.format("Received from client: %s", clientMsg));
                 logger.info("Sending public key back to client...");
 
-                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys_" + PORT_NUM + "/rsa_pub.pub");
+                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys_" + port + "/rsa_pub.pub");
                 byte[] stBytes = pk.getEncoded();
 
                 writer.writeInt(stBytes.length);
@@ -76,7 +79,7 @@ public class OnionServer {
                 writer.flush();
 
             } else if(getSecretKey() == null) {
-                byte[] decrypted = CryptoUtil.decryptRSA(msgBytes, msgBytes.length, CryptoUtil.loadRSAPrivateKey("./src/keys_"+PORT_NUM+"/rsa_pvt.key"));
+                byte[] decrypted = CryptoUtil.decryptRSA(msgBytes, msgBytes.length, CryptoUtil.loadRSAPrivateKey("./src/keys_" + port + "/rsa_pvt.key"));
 
                 SecretKey sk = new SecretKeySpec(decrypted, "AES");
                 setSecretKey(sk);
@@ -163,7 +166,20 @@ public class OnionServer {
 
 
     public static void main(String[] args) throws IOException {
-        OnionServer server = new OnionServer();
+        List<String> argsList = Arrays.asList(args);
+
+        int port;
+
+        if(argsList.contains("-p")) {
+            port = Integer.parseInt(argsList.get(argsList.indexOf("-p") + 1));
+        } else {
+            System.out.println("usage: java OnionServer.java [options]");
+            System.out.println("options:\n\t-p <port to use>:\tThe port number the server should use");
+            System.out.println("\t\t\tUser must guarantee that there are enough nodes for the path length. Otherwise, there will be unpredictable behavior.");
+            return;
+        }
+
+        OnionServer server = new OnionServer(port);
         server.run();
     }
 }
