@@ -117,7 +117,7 @@ public class OnionClient {
         logger.info("Setup complete");
 
         System.out.println("\n\nPlease write your message, enter when finished.");
-        System.out.println("Enter '0' without the quotes to exit the program");
+        System.out.println("Enter 'quit' without the quotes, or just enter to exit the program");
 
         while (true) {
             System.out.println("Write your message: ");
@@ -125,10 +125,14 @@ public class OnionClient {
             String msg = read.readLine();
 
             //Ending connection that is established
-            if (msg == null || msg.trim().equalsIgnoreCase("0")){
+            if (msg == null || msg.trim().equalsIgnoreCase("quit")){
                 logger.warn("Shutting down...");
-
+                msg = "quit";
+                byte[] shutdownBytes = shutDown(msg.getBytes());
+                writer.writeInt(shutdownBytes.length);
+                writer.write(shutdownBytes);
                 logger.info("Shutdown complete");
+                read.close();
                 break;
             }
 
@@ -152,9 +156,12 @@ public class OnionClient {
             }
             String fromServer = new String(bytesReceive, StandardCharsets.UTF_8);
 
-            logger.info("Message from server: %s", fromServer);
+            logger.info(String.format("Message from server: %s", fromServer));
 
         }
+        reader.close();
+        writer.close();
+
         socket.close();
     }
 
@@ -341,16 +348,7 @@ public class OnionClient {
             //ip and end port of server is encrypted in the loop
             if (i == nrOfNodes-1) {
                 byteBuffer = ByteBuffer.allocate(msgBytes.length
-                        + endIP.getBytes().length
-                        + String.valueOf(endPort).getBytes().length
-                        + ":".getBytes().length
-                        + "/".getBytes().length
-                        + String.valueOf(portsToVisit[portsToVisit.length-1]).getBytes().length
                 );
-                byteBuffer.put(endIP.getBytes());
-                byteBuffer.put(":".getBytes());
-                byteBuffer.put(String.valueOf(endPort).getBytes());
-                byteBuffer.put("/".getBytes());
                 byteBuffer.put(msgBytes);
                 byteBuffer.flip();
                 msgBytes = new byte[byteBuffer.limit()];
@@ -361,8 +359,33 @@ public class OnionClient {
         return msgBytes;
     }
 
+    /**
+     * Method that is used for encryption when talking to server now msg is 0 for shutting down
+     * @param msg message to encrypt, in the form of a bytearray
+     * @return encrypted bytearray
+     * @throws Exception when {@link CryptoUtil}.encryptAES throws an exception
+     */
+    public byte[] shutDown(byte[] msg) throws Exception {
+        byte[] msgBytes = Arrays.copyOf(msg, msg.length);
+
+        for (int i = nrOfNodes-1; i >= 0; i--) {
+            ByteBuffer byteBuffer;
+            //ip and end port of server is encrypted in the loop
+            if (i == nrOfNodes-1) {
+                byteBuffer = ByteBuffer.allocate(msgBytes.length);
+                byteBuffer.put(msgBytes);
+                byteBuffer.flip();
+                msgBytes = new byte[byteBuffer.limit()];
+                byteBuffer.get(msgBytes);
+
+            }
+            msgBytes = CryptoUtil.encryptAES(msgBytes, msgBytes.length, secretKeys[i]);
+        }
+        return msgBytes;
+    }
+
     public static void main(String[] args) throws Exception {
-        int tempNodes = 3;
+        int tempNodes = 4;
         OnionClient onionClient = new OnionClient(tempNodes, "localhost", 8119);
         onionClient.setNodeDestinations();
         onionClient.run();
