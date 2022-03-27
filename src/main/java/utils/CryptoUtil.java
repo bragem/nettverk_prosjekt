@@ -16,6 +16,9 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
+/**
+ * Util class for cryptography actions
+ */
 public class CryptoUtil {
 
     private static Logger logger = LoggerFactory.getLogger(CryptoUtil.class);

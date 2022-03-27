@@ -13,6 +13,9 @@ import java.security.PublicKey;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Server class that waits for connection from client
+ */
 public class OnionServer {
     int port;
     private String IPAddress;
