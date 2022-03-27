@@ -13,11 +13,16 @@ import java.security.PublicKey;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Server class that waits for connection from client
+ */
 public class OnionServer {
+
     final int PORT_NUM;
     private String IPAddress;
 
     ServerSocket server;
+
 
     // Secret symmetric key
     private SecretKey secretKey;
@@ -26,8 +31,10 @@ public class OnionServer {
 
     public OnionServer(int port) throws IOException {
         this.IPAddress = InetAddress.getByName(InetAddress.getLocalHost().getHostName()).getHostAddress();
+
         this.PORT_NUM = port;
         this.server = new ServerSocket(PORT_NUM);
+
         logger.info("Server starting...");
         logger.info(String.format("Server started at %s:%s", getIPAddress(), getPort()));
     }
@@ -45,12 +52,12 @@ public class OnionServer {
     }
 
     public int getPort() {
-        return PORT_NUM;
+        return port;
     }
 
 
     public void run() throws IOException {
-        CryptoUtil.createRSA(PORT_NUM);
+        CryptoUtil.createRSA(port);
 
         logger.info("Waiting for connection...");
         Socket conn = server.accept();
@@ -71,7 +78,7 @@ public class OnionServer {
                 logger.info(String.format("Received from client: %s", clientMsg));
                 logger.info("Sending public key back to client...");
 
-                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys_" + PORT_NUM + "/rsa_pub.pub");
+                PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys_" + port + "/rsa_pub.pub");
                 byte[] stBytes = pk.getEncoded();
 
                 writer.writeInt(stBytes.length);
@@ -79,7 +86,7 @@ public class OnionServer {
                 writer.flush();
 
             } else if(getSecretKey() == null) {
-                byte[] decrypted = CryptoUtil.decryptRSA(msgBytes, msgBytes.length, CryptoUtil.loadRSAPrivateKey("./src/keys_"+PORT_NUM+"/rsa_pvt.key"));
+                byte[] decrypted = CryptoUtil.decryptRSA(msgBytes, msgBytes.length, CryptoUtil.loadRSAPrivateKey("./src/keys_" + port + "/rsa_pvt.key"));
 
                 SecretKey sk = new SecretKeySpec(decrypted, "AES");
                 setSecretKey(sk);
