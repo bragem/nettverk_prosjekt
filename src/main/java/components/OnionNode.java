@@ -108,18 +108,20 @@ public class OnionNode {
                     logger.info(String.format("Received from client: %s", tmp));
                     logger.info("Sending public key back to client...");
 
-                    PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys/rsa_pub.pub");
+                    PublicKey pk = CryptoUtil.loadRSAPublicKey("./src/keys_"+port+"/rsa_pub.pub");
                     byte[] stBytes = pk.getEncoded();
+
 
                     dos.writeInt(stBytes.length);
                     dos.write(stBytes);
                     dos.flush();
 
-                } else if(getSecretKey() == null) {
+            } else if(getSecretKey() == null) {
                     byte[] decrypted = CryptoUtil.decryptRSA(
-                            bytes,
-                            bytes.length,
-                            CryptoUtil.loadRSAPrivateKey("./src/keys/rsa_pvt.key"));
+                        bytes,
+                        bytes.length,
+                        CryptoUtil.loadRSAPrivateKey("./src/keys_"+port+"/rsa_pvt.key"));
+
 
                     SecretKey sk = new SecretKeySpec(decrypted, "AES");
                     setSecretKey(sk);
@@ -185,12 +187,20 @@ public class OnionNode {
             byte[] decrypted = null;
 
 
-            while(!quit) {
-
-                switch(lastAction){
-                    case "writeToNext":
-                        //trenger sjekk om det står quit eller teardown i meldinga
-                        lastAction = "readFromNext";
+            switch(lastAction){
+                case "writeToNext":
+                    //trenger sjekk om det står quit eller teardown i meldinga
+                    lastAction = "readFromNext";
+                    if(socket.isClosed()){//TODO close connection
+                        readFromPrev.close();
+                        writeToPrev.close();
+                        readFromNext.close();
+                        writeToNext.close();
+                        System.exit(0);
+                    }
+                    byteLength = readFromNext.readInt();
+                    bytes = new byte[byteLength];
+                    readFromNext.readFully(bytes);
 
                         byteLength = readFromNext.readInt();
                         bytes = new byte[byteLength];
@@ -218,9 +228,12 @@ public class OnionNode {
 
                         logger.info("Received message from previous node");
 
-                        break;
-                    case "readFromPrev":
-                        lastAction = "writeToNext";
+                    decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
+                    logger.info("Message to next node decrypted");
+                    writeToNext.writeInt(decrypted.length);
+                    writeToNext.write(decrypted);
+                    logger.info("Message to next node sent");
+
 
                         decrypted = CryptoUtil.decryptAES(bytes, bytes.length, getSecretKey());
                         logger.info("Message to next node decrypted");
@@ -247,9 +260,9 @@ public class OnionNode {
         if(argsList.contains("-p")) {
             int port = Integer.parseInt(argsList.get(argsList.indexOf("-p") + 1));
             OnionNode node = new OnionNode(port);
-            CryptoUtil.createRSA();
+            CryptoUtil.createRSA(node.getPort());
             node.setupConnection();
-            CryptoUtil.cleanUp(new File("./src/keys"));
+            CryptoUtil.cleanUp(new File("./src/keys_" + node.getPort()));
 
         }
 
