@@ -17,10 +17,12 @@ import java.util.List;
  * Server class that waits for connection from client
  */
 public class OnionServer {
-    int port;
+
+    final int PORT_NUM;
     private String IPAddress;
 
-    ServerSocket server = new ServerSocket(port);
+    ServerSocket server;
+
 
     // Secret symmetric key
     private SecretKey secretKey;
@@ -29,7 +31,9 @@ public class OnionServer {
 
     public OnionServer(int port) throws IOException {
         this.IPAddress = InetAddress.getByName(InetAddress.getLocalHost().getHostName()).getHostAddress();
-        this.port = port;
+
+        this.PORT_NUM = port;
+        this.server = new ServerSocket(PORT_NUM);
 
         logger.info("Server starting...");
         logger.info(String.format("Server started at %s:%s", getIPAddress(), getPort()));
