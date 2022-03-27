@@ -75,16 +75,6 @@ kan du begynne å sende og motta meldinger.
 ### Eksterne kilder
 En haug med stack-overflow linker og søkerlogg er tilgjengelige ved forespørsel.
 
-### sdhjbvkdfjh
-- Navn på løsning
-- Lenke til siste build
-- implementert funksjonalitet
-- Fremtidig arbeid med oversikt over svakheter/mangler
-- Dependencies
-- Installasjonsmanual
-- Brukermanual
-- Hvordan kjøre tester/noe om tester i det hele tatt
-- Eventuell lenke til api dokumentasjon 
 
 Link til docs: https://bragem.github.io/nettverk_prosjekt/
 For å generere ny javadoc kjør mvn javadoc:javdoc
