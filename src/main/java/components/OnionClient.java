@@ -13,6 +13,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,6 +79,10 @@ public class OnionClient {
 
                 tmp.add(String.format("%s:%s", inetAddresses[i], portsToVisit[i]));
                 i++;
+
+                if(nrOfNodes == i) {
+                    break;
+                }
             }
 
             logger.info(String.format("IP addresses and ports to visit %s", tmp));
@@ -385,8 +390,24 @@ public class OnionClient {
     }
 
     public static void main(String[] args) throws Exception {
-        int tempNodes = 4;
-        OnionClient onionClient = new OnionClient(tempNodes, "localhost", 8119);
+        List<String> argsList = Arrays.asList(args);
+
+        int port;
+        int numberOfNodes;
+        String ip;
+
+        if(argsList.contains("-p") && argsList.contains("-ip") && argsList.contains("-n")) {
+            port = Integer.parseInt(argsList.get(argsList.indexOf("-p") + 1));
+            ip = argsList.get(argsList.indexOf("-ip") + 1);
+            numberOfNodes = Integer.parseInt(argsList.get(argsList.indexOf("-n") + 1));
+        } else {
+            System.out.println("usage: java OnionClient.java [options]");
+            System.out.println("options:\n\t-n <number of nodes>:\tThe number of nodes that the client is going to use\n\t-ip <ip address of server>:\tIP address that the server uses\n\t-p <server port>:\tThe port number of the server");
+            System.out.println("\t\t\tUser must guarantee that there are enough nodes for the path length. Otherwise, there will be unpredictable behavior.");
+            return;
+        }
+
+        OnionClient onionClient = new OnionClient(numberOfNodes + 1, ip, port);
         onionClient.setNodeDestinations();
         onionClient.run();
     }

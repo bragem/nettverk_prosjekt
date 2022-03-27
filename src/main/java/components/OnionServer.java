@@ -10,21 +10,24 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
+import java.util.Arrays;
+import java.util.List;
 
 public class OnionServer {
-    final int PORT_NUM = 8119;
+    final int PORT_NUM;
     private String IPAddress;
 
-    ServerSocket server = new ServerSocket(PORT_NUM);
+    ServerSocket server;
 
     // Secret symmetric key
     private SecretKey secretKey;
 
     private static Logger logger = LoggerFactory.getLogger(OnionClient.class);
 
-    public OnionServer() throws IOException {
+    public OnionServer(int port) throws IOException {
         this.IPAddress = InetAddress.getByName(InetAddress.getLocalHost().getHostName()).getHostAddress();
-
+        this.PORT_NUM = port;
+        this.server = new ServerSocket(PORT_NUM);
         logger.info("Server starting...");
         logger.info(String.format("Server started at %s:%s", getIPAddress(), getPort()));
     }
@@ -163,7 +166,20 @@ public class OnionServer {
 
 
     public static void main(String[] args) throws IOException {
-        OnionServer server = new OnionServer();
+        List<String> argsList = Arrays.asList(args);
+
+        int port;
+
+        if(argsList.contains("-p")) {
+            port = Integer.parseInt(argsList.get(argsList.indexOf("-p") + 1));
+        } else {
+            System.out.println("usage: java OnionServer.java [options]");
+            System.out.println("options:\n\t-p <port to use>:\tThe port number the server should use");
+            System.out.println("\t\t\tUser must guarantee that there are enough nodes for the path length. Otherwise, there will be unpredictable behavior.");
+            return;
+        }
+
+        OnionServer server = new OnionServer(port);
         server.run();
     }
 }
