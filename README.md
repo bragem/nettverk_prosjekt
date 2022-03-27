@@ -1,9 +1,12 @@
 ## Prosjekt i IDATT2104 - Nettverksprogrammering
-## Anders Tellefsen, Hasan Omarzae, Brage Minge
+## Anders Tellefsen, Hasan Omarzae, Brage Minge  
+
+Bruk completed branchen for å kjøre programmet
 
 # OnionChat
 OnionChat er en applikasjon som lar en client og en 
-server chatte over en sikker forbindelse ved bruk av onion routing.
+server chatte over en sikker forbindelse ved bruk av onion routing.  
+
 
 ### Funksjonalitet på brukernivå
 - Dynamisk oppsett av noder, bruker kan selv velge hvor mange noder
